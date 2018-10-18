@@ -31,6 +31,14 @@
  * `SLEEP_TIME`: positive integer - the time in milliseconds to sleep between producing messages and checking there response in e2e tests
  * `LOGGING_ON`: boolean - turn logging on during e2e testing (helpful for debugging tests)
 
+- `src/java/config/default.js`
+ * `AWS`: object - AWS related configurations
+  - `ACCESS_KEY_ID`: string - the AWS access key id
+  - `SECRET_ACCESS_KEY`: string - the AWS secret access key
+  - `REGION`: string - the AWS region
+  - `JOB_TABLE_NAME`: string - the DynamoDB table name for job records
+  - `VERIFICATION_TABLE_NAME`: string - the DynamoDB table name for verification records
+
 ## Kafka Local Setup
 
 - quickstart link (see summary below)
@@ -67,6 +75,24 @@
    * `bin/kafka-console-producer.sh --broker-list localhost:9092 --topic submission.notification.create`
   - start console consumer to interactively listen for messages on topic `submission.notification.create`
    * `bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic submission.notification.create --from-beginning`
+
+## AWS setup
+
+ - create DynamoDB tables
+  * open AWS console and go to DynamoDB
+  * create a table named Job (or whatever name you want it to be, but you need to change the configuration, see above). the hash key need to be id and its type is string. keep default value for other settings
+  * create another table named Verification (or whatever name you want it to be, but you need to change the configuration, see above). the hash key need to be id and its type is string. keep default value for other settings
+ - create S3 bucket
+  * open AWS console and go to S3
+  * create a new bucket
+ - create IAM user
+  * open AWS console and go to IAM
+  * create a new user
+  * go to security credentials tab, and click `Create access key` button
+  * in the popup, click to show the secret access key, and write it down (this is the only change you can ever see it)
+  * go to permissions tab, click `Add permissions` button
+  * to be simple, you can attach administrator access to the user, or you can fine tune the permission to only access the DynamoDB tables and S3 bucket, but you need to make sure you have permission to put and update Job table, scan Verification table, and list and getObject permission to the S3 bucket
+  * update the configuration in `src/java/config/default.js` and put all the values you created or retrieved
 
 ## E2E Tests
 

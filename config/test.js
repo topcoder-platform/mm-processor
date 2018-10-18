@@ -3,6 +3,6 @@
  */
 
 module.exports = {
-  SLEEP_TIME: 2000,
+  SLEEP_TIME: 5000,
   LOGGING_ON: false
 }

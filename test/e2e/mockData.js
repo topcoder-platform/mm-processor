@@ -23,7 +23,8 @@ const filteredOutMessage = {
       payload: {
         resource: 'some resource',
         id: 'submission id',
-        challengeId: 'challenge id'
+        challengeId: 'challenge id',
+        memberId: 1
       }
     })
   }
@@ -50,6 +51,7 @@ async function generateMarathonMatchMessage () {
           url: 'http://fake.url.com/path',
           fileType: 'file type',
           isFileSubmission: true,
+          memberId: 1,
           challengeId
         }
       })
@@ -70,6 +72,7 @@ async function generateDevelopmentMessage () {
         payload: {
           resource: config.KAFKA.FILTER.RESOURCES[0],
           id: 'submission id',
+          memberId: 1,
           challengeId
         }
       })
@@ -88,6 +91,7 @@ const badCidMessage = {
       payload: {
         resource: config.KAFKA.FILTER.RESOURCES[0],
         id: 'submission id',
+        memberId: 1,
         challengeId: 'notAChallengeId'
       }
     })

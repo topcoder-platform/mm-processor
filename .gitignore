@@ -59,3 +59,9 @@ typings/
 
 # next.js build output
 .next
+
+# java build
+src/java/job
+
+# Mac files
+.DS_Store

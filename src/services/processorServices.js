@@ -4,8 +4,11 @@
 
 const axios = require('axios')
 const Joi = require('joi')
+const uuid = require('uuid/v4')
 const config = require('config')
 const { logger } = require('../common/logger')
+
+const calculateScoreJava = require('../java/calculateScore')
 
 /**
  * Process the message.
@@ -36,6 +39,7 @@ async function processMessage (message) {
   // attempt to retrieve the subTrack of the challenge
   const subTrack = await getSubTrack(message.payload.challengeId)
   if (subTrack && subTrack.search(config.CHALLENGE_SUBTRACK) > -1) { // challenge matches configured CHALLENGE_SUBTRACK
+    await processMMSubmission(message)
     logger.debug(`Successful Processing of MM Message: ${JSON.stringify(message, null, 2)}`)
   } else if (subTrack) { // challenge does not match configured CHALLENGE_SUBTRACK
     logger.debug(`Ignore Message: ${JSON.stringify(message, null, 2)}`)
@@ -67,6 +71,19 @@ async function getSubTrack (challengeId) {
   }
 }
 
+/**
+ * Process the MM submission
+ * @param {object} message - the message
+ */
+async function processMMSubmission (message) {
+  if (message.payload.fileType !== 'java') {
+    logger.debug('Submission is not Java code, ignore')
+    return
+  }
+  const id = uuid()
+  await calculateScoreJava(message.payload.id, String(message.payload.memberId), String(message.payload.challengeId), message.payload.url, id)
+}
+
 // message schema used to validate messages
 const messageSchema = Joi.object().keys({
   topic: Joi.string().required(),
@@ -77,8 +94,10 @@ const messageSchema = Joi.object().keys({
     resource: Joi.string().required(),
     id: Joi.string().required(),
     challengeId: Joi.alternatives().try(Joi.string(), Joi.number()).required(),
+    memberId: Joi.alternatives().try(Joi.string(), Joi.number()).required(),
     url: Joi.string().uri().trim(),
     fileType: Joi.string(),
+    filename: Joi.string(),
     isFileSubmission: Joi.boolean()
   }).unknown(true).required()
 }).required()

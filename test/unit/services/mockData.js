@@ -13,7 +13,8 @@ const validMessage = {
   payload: {
     resource: config.KAFKA.FILTER.RESOURCES[0],
     id: 'submission id',
-    challengeId: 'valid challenge id'
+    challengeId: 'valid challenge id',
+    memberId: '123457'
   }
 }
 
