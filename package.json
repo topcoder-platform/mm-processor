@@ -1,0 +1,44 @@
+{
+  "name": "tc-mm-processor",
+  "version": "1.0.0",
+  "description": "Topcoder Submission - MM Processor Initial Setup",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "lint": "standard",
+    "lint:fix": "standard --fix",
+    "test": "NODE_ENV=test mocha \"test/unit/**/*.test.js\" --exit",
+    "test:cov": "nyc npm test",
+    "e2e": "NODE_ENV=test mocha \"test/e2e/**/*.test.js\" --exit",
+    "e2e:cov": "nyc npm run e2e"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "",
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "mocha": "^5.2.0",
+    "nyc": "^13.0.1",
+    "proxyquire": "^2.1.0",
+    "sinon": "^6.3.4",
+    "standard": "^12.0.1"
+  },
+  "dependencies": {
+    "axios": "^0.18.0",
+    "bluebird": "^3.5.2",
+    "config": "^2.0.1",
+    "joi": "^13.7.0",
+    "lodash": "^4.17.11",
+    "no-kafka": "^3.2.10",
+    "topcoder-healthcheck-dropin": "^1.0.3",
+    "winston": "^3.1.0"
+  },
+  "standard": {
+    "env": [
+      "mocha"
+    ]
+  },
+  "engines": {
+    "node": "8.x"
+  }
+}
