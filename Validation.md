@@ -75,6 +75,12 @@ npm start
     "id": "some random id, it does not matter",
     "challengeId": "16344",
     "className": "Random",
+    "maxMemory": "64m",
+    "inputs": [
+      1,
+      2,
+      3
+    ],
     "method": [{
         "name": "guess"
     }],

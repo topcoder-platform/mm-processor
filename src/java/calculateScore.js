@@ -55,7 +55,7 @@ async function calculateScore (submissionId, memberId, challengeId, submissionUR
   }
   const score = await verifySubmission(jobId, verification.Items[0])
 
-  logger.debug(`Submission ${submissionId} has finished processing with score ${score}`)
+  logger.debug(`Submission ${submissionId} has finished processing with score ${Number(score).toFixed(2)} for job id ${jobId}`)
   return {
     score
   }
@@ -216,24 +216,34 @@ function getVerification (challengeId) {
  * @returns {Promise} a promise which will be resolved when the verification is finished.
  */
 function verifySubmission (jobId, verification) {
+  const java = require('java')
   const [bucketName, key] = getDownloadPath(verification.url)
   return updateJob(jobId, 'Verification').then(() => {
     return downloadFile(bucketName, key)
   }).then((fileData) => {
     const script = new vm.Script(fileData.Body.toString())
-    const java = require('java')
-    java.classpath.push(path.join(__dirname, 'job', jobId, 'build', 'submission.jar'))
-    const sandbox = {
-      java,
-      verification
-    }
     return new Promise((resolve, reject) => {
-      script.runInNewContext(sandbox)
-      if (sandbox.error) {
-        reject(sandbox.error)
-      } else {
-        resolve(sandbox.score)
+      java.options.push('-Xrs');
+      if (verification.maxMemory) {
+        logger.debug(`Setting max heap stack memory to ${verification.maxMemory}`);
+        java.options.push(`-Xmx${verification.maxMemory}`);
       }
+      java.classpath.push(path.join(__dirname, 'job', jobId, 'build', 'submission.jar'))
+      const sandbox = {
+        java,
+        inputs: verification.inputs,
+        outputs: verification.outputs,
+        methods: verification.methods,
+        className: verification.className
+      }
+      java.ensureJvm(() => { // make sure JVM has been initialized
+        script.runInNewContext(sandbox)
+        if (sandbox.error) {
+          reject(sandbox.error)
+        } else {
+          resolve(sandbox.score)
+        }
+      })
     })
   }).then((score) => {
     return updateJob(jobId, 'Finished', score)

@@ -5,7 +5,7 @@ let random = java.newInstanceSync('java.util.Random')
 
 let submission = null
 try {
-  submission = java.newInstanceSync(verification.className)
+  submission = java.newInstanceSync(className)
 } catch (err) {
   error = 'Expected class Random cannot be found'
 }
@@ -13,16 +13,16 @@ try {
 let total = 0
 if (!error) {
   try {
-    for (let i = 1; i <= 3; i++) {
-      let y = random.nextIntSync(i)
-      let x = submission[verification.methods[0].name + 'Sync']()
+    inputs.forEach(function(input) {
+      let y = random.nextIntSync(input)
+      let x = submission[methods[0].name + 'Sync']()
       total += y > x ? 0 : 100 - x + y
-    }
+    });
   } catch (err) {
     error = 'Expected method guess cannot be found'
   }
 }
 
 if (!error) {
-  score = total / 3.0
+  score = total / inputs.length
 }

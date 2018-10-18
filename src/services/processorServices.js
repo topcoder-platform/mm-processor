@@ -81,8 +81,7 @@ async function processMMSubmission (message) {
     return
   }
   const id = uuid()
-  const score = await calculateScoreJava(message.payload.id, String(message.payload.memberId), String(message.payload.challengeId), message.payload.url, id)
-  logger.debug(`Scored: ${score} for job id: ${id}`)
+  await calculateScoreJava(message.payload.id, String(message.payload.memberId), String(message.payload.challengeId), message.payload.url, id)
 }
 
 // message schema used to validate messages

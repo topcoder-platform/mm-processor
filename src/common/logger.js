@@ -24,7 +24,7 @@ logger.logFullError = (err) => {
   } else if (err.stack) { // log error stack if present
     logger.error(err.stack)
   } else {
-    logger.error(err)
+    logger.error(JSON.stringify(err))
   }
 }
 
