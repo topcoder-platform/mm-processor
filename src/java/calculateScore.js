@@ -2,7 +2,7 @@
  * This module defines the method to calculate the score for a submission.
  */
 const { exec } = require('child_process')
-const vm = require('vm')
+const threads = require('threads');
 const path = require('path')
 const fs = require('fs-extra')
 const AWS = require('aws-sdk')
@@ -53,12 +53,9 @@ async function calculateScore (submissionId, memberId, challengeId, submissionUR
     logger.debug(`The verification information cannot be found or mutiple verifications are found`)
     return
   }
-  const score = await verifySubmission(jobId, verification.Items[0])
-
-  logger.debug(`Submission ${submissionId} has finished processing with score ${Number(score).toFixed(2)} for job id ${jobId}`)
-  return {
-    score
-  }
+  const results = await verifySubmission(jobId, verification.Items[0])
+  logger.debug(`Submission ${submissionId} has finished processing job=${jobId}`)
+  return results
 }
 
 /**
@@ -127,7 +124,7 @@ function createJob (jobId, submissionId, memberId, challengeId) {
  * @param {string} error the error, optional.
  * @returns {Promise} a promise which will be resolved when the job record is updated.
  */
-function updateJob (jobId, status, score, error) {
+function updateJob (jobId, status, results, error) {
   let updateExpression = 'set #status = :status, #updatedOn = :updatedOn'
   let expressionAttributeNames = {
     '#status': 'status',
@@ -137,10 +134,10 @@ function updateJob (jobId, status, score, error) {
     ':status': status,
     ':updatedOn': moment().toISOString()
   }
-  if (score) {
-    updateExpression = updateExpression + ', #score = :score'
-    expressionAttributeNames['#score'] = 'score'
-    expressionAttributeValues[':score'] = score
+  if (results) {
+    updateExpression = updateExpression + ', #results = :results'
+    expressionAttributeNames['#results'] = 'results'
+    expressionAttributeValues[':results'] = results
   }
   if (error) {
     updateExpression = updateExpression + ', #error = :error'
@@ -216,47 +213,59 @@ function getVerification (challengeId) {
  * @returns {Promise} a promise which will be resolved when the verification is finished.
  */
 function verifySubmission (jobId, verification) {
-  const java = require('java')
   const [bucketName, key] = getDownloadPath(verification.url)
   return updateJob(jobId, 'Verification').then(() => {
     return downloadFile(bucketName, key)
   }).then((fileData) => {
-    const script = new vm.Script(fileData.Body.toString())
-    return new Promise((resolve, reject) => {
-      java.options.push('-Xrs');
-      if (verification.maxMemory) {
-        logger.debug(`Setting max heap stack memory to ${verification.maxMemory}`);
-        java.options.push(`-Xmx${verification.maxMemory}`);
-      }
-      java.classpath.push(path.join(__dirname, 'job', jobId, 'build', 'submission.jar'))
-      const sandbox = {
-        java,
-        inputs: verification.inputs,
-        outputs: verification.outputs,
-        methods: verification.methods,
-        className: verification.className
-      }
-      java.ensureJvm(() => { // make sure JVM has been initialized
-        script.runInNewContext(sandbox)
-        if (sandbox.error) {
-          reject(sandbox.error)
-        } else {
-          resolve(sandbox.score)
-        }
-      })
-    })
-  }).then((score) => {
-    return updateJob(jobId, 'Finished', score)
+    return runCode(jobId, fileData, verification)
+  }).then((results) => {
+    return updateJob(jobId, 'Finished', results)
   }, (error) => {
     return updateJob(jobId, 'Error', null, error)
   }).then((job) => {
     return new Promise((resolve, reject) => {
       if (job.Attributes.status === 'Finished') {
-        resolve(job.Attributes.score)
+        resolve(job.Attributes.results)
       } else {
         reject(job.Attributes.error)
       }
     })
+  })
+}
+
+function runCode (jobId, fileData, verification) {
+  // Set base paths to thread scripts
+  threads.config.set({
+    basepath : {
+     node : __dirname
+    }
+  })
+  return new Promise((resolve, reject) => {
+    const { inputs, outputs, maxMemory, className, methods } = verification
+    if (outputs && outputs.length !== inputs.length) {
+      reject(new Error('Output should have the same lenght as input'))
+    }
+    const results = []
+    const pool = new threads.Pool(inputs.length)
+    inputs.forEach((input, index) => {
+      results.push({})
+      pool.run('run.js')
+        .send({ __dirname: __dirname, jobId, input, output: outputs ? verification.outputs[index] : null, maxMemory, className,
+          methods, verificationData: fileData.Body.toString() })
+        .on('error', function(error) {
+          results[index] = {
+            error: `Failed to run job for input=${input}`,
+            score: 0.0
+          }
+        })
+        .on('done', function(data) {
+          results[index] = data
+        })
+    })
+    pool
+      .on('finished', () => {
+        resolve(results)
+      })
   })
 }
 

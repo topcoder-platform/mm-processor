@@ -62,7 +62,7 @@ npm start
 
 - message (missing required keys (timestamp) - should log validation errors)
 ```
-{ "topic": "submission.notification.create", "originator": "submission-api", "mime-type": "some mime-type", "payload": { "resource": "submission", "id": "some-id", "challengeId": "16344", "memberId": "123457", "url": "http://fake.url.com", "fileType": "some file type", "isFileSubmission": true } }
+  { "topic": "submission.notification.create", "originator": "submission-api", "mime-type": "some mime-type", "payload": { "resource": "submission", "id": "some-id", "challengeId": "16344", "memberId": "123457", "url": "http://fake.url.com", "fileType": "some file type", "isFileSubmission": true } }
 ```
 
 ## Verification for Java Score System
