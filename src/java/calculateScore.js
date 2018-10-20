@@ -250,7 +250,7 @@ function runCode (jobId, fileData, verification) {
     inputs.forEach((input, index) => {
       results.push({})
       pool.run('run.js')
-        .send({ __dirname: __dirname, jobId, input, output: outputs ? verification.outputs[index] : null, maxMemory, className,
+        .send({ __dirname: __dirname, jobId, input, output: outputs ? outputs[index] : null, maxMemory, className,
           methods, verificationData: fileData.Body.toString() })
         .on('error', function(error) {
           results[index] = {

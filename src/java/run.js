@@ -9,7 +9,7 @@ const mapping = {
   'string[]': '[java/lang/String;',
 }
 
-const runLoop = (inputObject, done) => {
+function runLoop (inputObject, done) {
   const { __dirname, jobId, input, output, maxMemory, className, methods, verificationData } = inputObject
   const path = require('path')
   const java = require('java')

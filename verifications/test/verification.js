@@ -16,3 +16,4 @@ const verification = (input, output, className, methods) => {
 }
 
  module.exports = verification
+ 
