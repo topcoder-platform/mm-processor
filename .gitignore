@@ -65,3 +65,6 @@ src/java/job
 
 # Mac files
 .DS_Store
+
+# VS code
+.vscode
