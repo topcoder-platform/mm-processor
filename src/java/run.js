@@ -24,28 +24,28 @@ const runLoop = (inputObject, done) => {
   java.classpath.push(path.join(__dirname, 'job', jobId, 'build', 'submission.jar'))
 
   java.ensureJvm(() => {
-    // check signature
-    methods.forEach((method) => {
-      const args = method.input.map((mIn) => mapping[mIn])
-      const ret = method.output.map((mOut) => mapping[mOut]).shift()
-      const methodName = `${method.name}(${args})${ret}`
-      try {
-        var instance = java.newInstanceSync(className)
-        const methodReturn = java.callMethodSync.apply(java, [instance, methodName, ...method.input])
-      } catch(err) {
-        logger.debug(`Wrong method signature`)
-        throw new Error(err)
-      }
-    })
+    try {
+      const submission = java.newInstanceSync(className)
+      // check signature
+      methods.forEach((method) => {
+        const args = method.input.map((mIn) => mapping[mIn])
+        const ret = method.output.map((mOut) => mapping[mOut]).shift()
+        const methodName = `${method.name}(${args})${ret}`
+        java.callMethodSync.apply(java, [submission, methodName, ...method.input])
+      })
 
-    const verificationScript = new VMScript(verificationData)
-    const vm = new NodeVM({
-      sandbox: {
-        java
-      }
-    })
-    const verification = vm.run(verificationScript, __dirname)
-    done(verification(input, output, className, methods))
+      const verificationScript = new VMScript(verificationData)
+      const vm = new NodeVM({
+        sandbox: {
+          java,
+          submission
+        }
+      })
+      const verification = vm.run(verificationScript, __dirname)
+      done(verification(input, output, className, methods))
+    } catch(err) {
+      done({ score: 0.0, error: 'Error in verification' })
+    }
   })
 }
 
