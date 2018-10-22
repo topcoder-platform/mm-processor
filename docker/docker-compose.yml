@@ -1,7 +1,7 @@
 version: '3'
 services:
   tc-mm-processor:
-    image: tc-mm-processor:latest
+    image: mm-processor:latest
     build:
       context: ../
       dockerfile: docker/Dockerfile
