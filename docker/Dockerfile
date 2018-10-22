@@ -2,9 +2,9 @@
 FROM node:8.11.3
 
 # Copy the current directory into the Docker image
-COPY . /tc-mm-processor
+COPY . /mm-processor
 # Set working directory for future use
-WORKDIR /tc-mm-processor
+WORKDIR /mm-processor
 
 # Install the dependencies from package.json
 RUN npm install
