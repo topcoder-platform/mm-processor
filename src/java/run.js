@@ -6,7 +6,7 @@ const mapping = {
   'string': 'Ljava/lang/String;',
   'int[]': '[I',
   'double[]': '[D',
-  'string[]': '[java/lang/String;',
+  'string[]': '[java/lang/String;'
 }
 
 function runLoop (inputObject, done) {
@@ -14,7 +14,7 @@ function runLoop (inputObject, done) {
   const path = require('path')
   const java = require('java')
   const { NodeVM, VMScript } = require('vm2')
-  const { logger } = require(__dirname + '/../common/logger')
+  const { logger } = require(path.join(__dirname, '../common/logger'))
 
   java.options.push('-Xrs')
   if (maxMemory) {
@@ -41,9 +41,14 @@ function runLoop (inputObject, done) {
           submission
         }
       })
+
+      logger.info(`Starting verification for ${jobId}`)
       const verification = vm.run(verificationScript, __dirname)
-      done(verification(input, output, className, methods))
-    } catch(err) {
+      const results = verification(input, output, className, methods)
+      logger.debug(results)
+      done(results)
+    } catch (err) {
+      logger.error(err)
       done({ score: 0.0, error: 'Error in verification' })
     }
   })

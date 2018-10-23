@@ -2,7 +2,7 @@
  * This module defines the method to calculate the score for a submission.
  */
 const { exec } = require('child_process')
-const threads = require('threads');
+const threads = require('threads')
 const path = require('path')
 const fs = require('fs-extra')
 const AWS = require('aws-sdk')
@@ -236,29 +236,26 @@ function verifySubmission (jobId, verification) {
 function runCode (jobId, fileData, verification) {
   // Set base paths to thread scripts
   threads.config.set({
-    basepath : {
-     node : __dirname
+    basepath: {
+      node: __dirname
     }
   })
   return new Promise((resolve, reject) => {
     const { inputs, outputs, maxMemory, className, methods } = verification
-    if (outputs && outputs.length !== inputs.length) {
-      reject(new Error('Output should have the same lenght as input'))
-    }
     const results = []
     const pool = new threads.Pool(inputs.length)
     inputs.forEach((input, index) => {
       results.push({})
       pool.run('run.js')
-        .send({ __dirname: __dirname, jobId, input, output: outputs ? outputs[index] : null, maxMemory, className,
-          methods, verificationData: fileData.Body.toString() })
-        .on('error', function(error) {
+        .send({ __dirname: __dirname, jobId, input, output: outputs ? outputs[index] : null, maxMemory, className, methods, verificationData: fileData.Body.toString() })
+        .on('error', (error) => {
+          logger.error('Failed running job', error)
           results[index] = {
             error: `Failed to run job for input=${input}`,
             score: 0.0
           }
         })
-        .on('done', function(data) {
+        .on('done', (data) => {
           results[index] = data
         })
     })
