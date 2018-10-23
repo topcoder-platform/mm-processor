@@ -5,6 +5,7 @@ const { exec } = require('child_process')
 const threads = require('threads')
 const path = require('path')
 const fs = require('fs-extra')
+const Joi = require('joi')
 const AWS = require('aws-sdk')
 const moment = require('moment')
 const config = require('config').util.loadFileConfigs(path.join(__dirname, 'config'))
@@ -214,7 +215,9 @@ function getVerification (challengeId) {
  */
 function verifySubmission (jobId, verification) {
   const [bucketName, key] = getDownloadPath(verification.url)
-  return updateJob(jobId, 'Verification').then(() => {
+  return verificationSchema.validate(verification, { abortEarly: false }).then(() => {
+    return updateJob(jobId, 'Verification')
+  }).then(() => {
     return downloadFile(bucketName, key)
   }).then((fileData) => {
     return runCode(jobId, fileData, verification)
@@ -265,5 +268,22 @@ function runCode (jobId, fileData, verification) {
       })
   })
 }
+
+const MethodSchema = Joi.object({
+  input: Joi.array().items(Joi.string()).min(0).required(),
+  name: Joi.string().trim().required(),
+  output: Joi.array().items(Joi.string()).length(1).required()
+})
+
+const verificationSchema = Joi.object({
+  id: Joi.string().required(),
+  className: Joi.string().required(),
+  challengeId: Joi.alternatives().try(Joi.string(), Joi.number()).required(),
+  maxMemory: Joi.string().required(),
+  url: Joi.string().uri().trim().required(),
+  methods: Joi.array().items(MethodSchema).min(1).required(),
+  inputs: Joi.array().min(1).required(),
+  outputs: Joi.array()
+}).required()
 
 module.exports = calculateScore
