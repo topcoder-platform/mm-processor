@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eo pipefail
 UPDATE_CACHE=""
-docker-compose -f docker/docker-compose.yml build tc-mm-processor
+docker-compose -f docker/docker-compose.yml build mm-processor
 docker create --name app $TAG
 
 if [ -d node_modules ]
