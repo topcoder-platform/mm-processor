@@ -1,6 +1,6 @@
 version: '3'
 services:
-  tc-mm-processor:
+  mm-processor:
     image: mm-processor:latest
     build:
       context: ../
