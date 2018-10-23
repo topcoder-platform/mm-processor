@@ -51,9 +51,12 @@ async function calculateScore (submissionId, memberId, challengeId, submissionUR
 
   const verification = await getVerification(challengeId)
   if (verification === null || verification.Count !== 1) {
-    logger.debug(`The verification information cannot be found or mutiple verifications are found`)
+    logger.error('The verification information cannot be found or mutiple verifications are found')
+    await updateJob(jobId, 'Error', null, 'The verification information cannot be found or mutiple verifications are found')
     return
   }
+  logger.debug('Verification object retrieved from database')
+
   const results = await verifySubmission(jobId, verification.Items[0])
   logger.debug(`Submission ${submissionId} has finished processing job=${jobId}`)
   return results

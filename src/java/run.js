@@ -29,7 +29,7 @@ function runLoop (inputObject, done) {
       // check signature
       methods.forEach((method) => {
         const args = method.input.map((mIn) => mapping[mIn])
-        const ret = method.output.map((mOut) => mapping[mOut]).shift()
+        const ret = mapping[method.output]
         const methodName = `${method.name}(${args})${ret}`
         java.callMethodSync.apply(java, [submission, methodName, ...method.input])
       })

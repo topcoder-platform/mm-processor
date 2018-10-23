@@ -81,8 +81,10 @@ npm start
       2,
       3
     ],
-    "method": [{
-        "name": "guess"
+    "methods": [{
+        "name": "guess",
+        "input": [],
+        "output": "int"
     }],
     "url": "S3 URL of verification.js"
 }
