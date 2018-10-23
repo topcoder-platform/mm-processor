@@ -2,7 +2,7 @@
 set -eo pipefail
 UPDATE_CACHE=""
 docker-compose -f docker/docker-compose.yml build mm-processor
-docker create --name app $TAG
+docker create --name app mm-processor:latest
 
 if [ -d node_modules ]
 then
