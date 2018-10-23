@@ -275,7 +275,7 @@ function runCode (jobId, fileData, verification) {
 const MethodSchema = Joi.object({
   input: Joi.array().items(Joi.string()).min(0).required(),
   name: Joi.string().trim().required(),
-  output: Joi.array().items(Joi.string()).length(1).required()
+  output: Joi.string()
 })
 
 const verificationSchema = Joi.object({
