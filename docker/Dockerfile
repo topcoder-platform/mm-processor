@@ -1,5 +1,9 @@
 # Use the base image with Node.js 8.11.3
-FROM node:8.11.3
+FROM openjdk:latest
+
+# RUN apt-get install -y openjdk-8-jdk
+RUN curl -sL https://deb.nodesource.com/setup_8.x | bash
+RUN apt-get install -y nodejs
 
 # Copy the current directory into the Docker image
 COPY . /mm-processor
