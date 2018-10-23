@@ -6,7 +6,7 @@ install_dependency: &install_dependency
           name: Installation of build and deployment dependencies.
           command: |
             apk add --no-cache bash
-            apk add --no-cache jq py-pip sudo
+            apk add --no-cache jq py-pip sudo openjdk-8-jdk-headless
             sudo pip install awscli --upgrade
             sudo pip install docker-compose
 restore_cache_settings_for_build: &restore_cache_settings_for_build
@@ -26,7 +26,7 @@ jobs:
       - setup_remote_docker
       - run: *install_dependency
       - restore_cache: *restore_cache_settings_for_build
-      - run: docker-compose -f docker/docker-compose.yml build tc-mm-processor
+      - run: ./build.sh
       - save_cache: *save_cache_settings
       - deploy:
           name: Running MasterScript.
@@ -43,7 +43,7 @@ jobs:
       - setup_remote_docker
       - run: *install_dependency
       - restore_cache: *restore_cache_settings_for_build
-      - run: docker-compose -f docker/docker-compose.yml build tc-mm-processor
+      - run: ./build.sh
       - save_cache: *save_cache_settings
       - deploy:
           name: Running MasterScript.
