@@ -38,6 +38,13 @@ class KafkaListener {
   }
 
   /**
+   * End the listener.
+   */
+  async end () {
+    await this.consumer.end()
+  }
+
+  /**
    * Add topic for kafka consumer to listen to.
    * @param {string} topic - The topic to listen to.
    */
@@ -78,7 +85,7 @@ class KafkaListener {
     return async (messageSet, topic, partition) => {
       await Promise.each(messageSet, async function (m) {
         try { // attempt to process the message
-          await processMessage(JSON.parse(m.message.value.toString('utf8')))
+          return await processMessage(JSON.parse(m.message.value.toString('utf8')))
         } catch (err) {
           if (err instanceof SyntaxError) { // catch json parsing errors of message
             logger.error('Message with invalid json received from kafka')
@@ -86,7 +93,7 @@ class KafkaListener {
             logger.logFullError(err)
           }
         } finally { // commit the message regardless of errors
-          consumer.commitOffset({ topic, partition, offset: m.offset })
+          await consumer.commitOffset({ topic, partition, offset: m.offset })
         }
       })
     }

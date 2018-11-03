@@ -4,9 +4,32 @@
  * This is a general purpose Gradle build.
  * Learn how to create Gradle builds at https://guides.gradle.org/creating-new-gradle-builds/
  */
+project.ext {
+    aspectjVersion = '1.8.13'
+}
 
-plugins {
-  id 'java'
+buildscript {
+    repositories {
+        maven {
+            url "https://maven.eveoh.nl/content/repositories/releases"
+        }
+    }
+
+    dependencies {
+        classpath "nl.eveoh:gradle-aspectj:2.0"
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'aspectj'
+
+repositories {
+    mavenCentral()
+}
+
+task fatJar(type: Jar) {
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
 }
 
 sourceCompatibility = '1.8'

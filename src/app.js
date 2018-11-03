@@ -11,3 +11,7 @@ listener.bootstrap()
 
 // initialize healthcheck dropin
 healthcheck.init([ listener.generateIsConnected() ])
+
+if (process.env.NODE_ENV === 'test') {
+  module.exports = listener
+}

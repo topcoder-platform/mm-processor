@@ -5,6 +5,7 @@ const { exec } = require('child_process')
 const threads = require('threads')
 const path = require('path')
 const fs = require('fs-extra')
+const replace = require('replace-in-file')
 const Joi = require('joi')
 const AWS = require('aws-sdk')
 const moment = require('moment')
@@ -38,27 +39,26 @@ const s3UrlPattern = /^https:\/\/(.*)\.?s3\.amazonaws\.com\/(.+)$/
  * @param {string} jobId the job id.
  */
 async function calculateScore (submissionId, memberId, challengeId, submissionURL, jobId) {
-  const [bucketName, key, filename] = getDownloadPath(submissionURL)
-  if (!bucketName) {
-    return
-  }
-
   await createJob(jobId, submissionId, memberId, challengeId)
 
-  await createJobFolder(jobId, bucketName, key, filename)
-
-  await buildSubmission(jobId)
-
+  // get verification from DynamoDB
   const verification = await getVerification(challengeId)
   if (verification === null || verification.Count !== 1) {
-    logger.error('The verification information cannot be found or mutiple verifications are found')
-    await updateJob(jobId, 'Error', null, 'The verification information cannot be found or mutiple verifications are found')
+    await updateJob(jobId, 'Error', null, 'The verification information cannot be found or multiple verifications are found')
     return
   }
   logger.debug('Verification object retrieved from database')
 
-  const results = await verifySubmission(jobId, verification.Items[0])
-  logger.debug(`Submission ${submissionId} has finished processing job=${jobId}`)
+  try {
+    const [bucketName, key, filename] = getDownloadPath(submissionURL)
+    await createJobFolder(jobId, bucketName, key, filename)
+    await buildSubmission(jobId)
+  } catch (err) {
+    await updateJob(jobId, 'Error', null, `Error preparing submission: ${err.message ? err.message : JSON.stringify(err)}`)
+    return
+  }
+  const { results } = await verifySubmission(jobId, verification.Items[0])
+  logger.info(`Submission ${submissionId} has finished processing job=${jobId}`)
   return results
 }
 
@@ -70,8 +70,8 @@ async function calculateScore (submissionId, memberId, challengeId, submissionUR
 function getDownloadPath (url) {
   const matches = s3UrlPattern.exec(url)
   if (matches === null) {
-    logger.debug('The URL is not for S3, ignore')
-    return
+    logger.error('The URL is not for S3')
+    throw new Error(`The URL is not for S3: ${url}`)
   }
   let bucketName = matches[1]
   let key = matches[2]
@@ -144,6 +144,7 @@ function updateJob (jobId, status, results, error) {
     expressionAttributeValues[':results'] = results
   }
   if (error) {
+    logger.error(error)
     updateExpression = updateExpression + ', #error = :error'
     expressionAttributeNames['#error'] = 'error'
     expressionAttributeValues[':error'] = error
@@ -171,6 +172,13 @@ function updateJob (jobId, status, results, error) {
 async function createJobFolder (jobId, bucketName, key, filename) {
   await fs.mkdirs(path.join(__dirname, 'job', jobId, 'project/src/main/java'))
   await fs.copy(path.join(__dirname, 'template'), path.join(__dirname, 'job', jobId, 'project'))
+  await fs.move(path.join(__dirname, 'job', jobId, 'project', 'Statistics.java'), path.join(__dirname, 'job', jobId, 'project/src/main/java', 'Statistics.java'))
+  await fs.move(path.join(__dirname, 'job', jobId, 'project', 'StatisticsAspect.java'), path.join(__dirname, 'job', jobId, 'project/src/main/java', 'StatisticsAspect.java'))
+  await replace({
+    files: path.join(__dirname, 'job', jobId, 'project/src/main/java', '*.java'),
+    from: /<class-name>/g,
+    to: path.basename(filename, '.java')
+  })
   const fileData = await downloadFile(bucketName, key)
   await fs.outputFile(path.join(__dirname, 'job', jobId, 'project/src/main/java', filename), fileData.Body)
 }
@@ -183,9 +191,9 @@ async function createJobFolder (jobId, bucketName, key, filename) {
 function buildSubmission (jobId) {
   return updateJob(jobId, 'Compile').then(() => {
     return new Promise((resolve, reject) => {
-      exec('./gradlew jar', {
+      exec('./gradlew fatJar', {
         cwd: path.join(__dirname, 'job', jobId, 'project')
-      }, (err, o) => {
+      }, (err) => {
         if (err) {
           reject(err)
         } else {
@@ -217,24 +225,76 @@ function getVerification (challengeId) {
  * @returns {Promise} a promise which will be resolved when the verification is finished.
  */
 function verifySubmission (jobId, verification) {
-  const [bucketName, key] = getDownloadPath(verification.url)
   return verificationSchema.validate(verification, { abortEarly: false }).then(() => {
     return updateJob(jobId, 'Verification')
   }).then(() => {
+    return verifySignature(jobId, verification)
+  }).then(() => {
+    const [bucketName, key] = getDownloadPath(verification.url)
     return downloadFile(bucketName, key)
   }).then((fileData) => {
     return runCode(jobId, fileData, verification)
   }).then((results) => {
     return updateJob(jobId, 'Finished', results)
   }, (error) => {
-    return updateJob(jobId, 'Error', null, error)
+    return updateJob(jobId, 'Error', null, error.message ? error.message : JSON.stringify(error))
   }).then((job) => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       if (job.Attributes.status === 'Finished') {
-        resolve(job.Attributes.results)
+        resolve({ results: job.Attributes.results })
       } else {
-        reject(job.Attributes.error)
+        resolve({ err: job.Attributes.error })
       }
+    })
+  })
+}
+
+function verifySignature (jobId, verification) {
+  const java = require('java')
+  const { methods } = verification
+  const mapping = {
+    'int': 'I',
+    'double': 'D',
+    'string': 'Ljava/lang/String;',
+    'int[]': '[I',
+    'double[]': '[D',
+    'string[]': '[Ljava/lang/String;'
+  }
+  const samples = {
+    'int': 1,
+    'double': 1.0,
+    'string': 'string'
+  }
+  const buildSampleInput = (type) => {
+    if (samples[type]) {
+      return samples[type]
+    } else if (type === 'int[]') {
+      return java.newArray('int', [1])
+    } else if (type === 'double[]') {
+      return java.newArray('double', [1.1])
+    } else if (type === 'string[]') {
+      return java.newArray('java.lang.String', ['String'])
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    java.options.push('-Xrs')
+    java.classpath.push(path.join(__dirname, 'job', jobId, 'build', 'submission.jar'))
+    java.ensureJvm(() => {
+      methods.forEach((method) => {
+        // check signature
+        const args = method.input.map((mIn) => mapping[mIn])
+        const ret = mapping[method.output]
+        const methodName = `${method.name}(${args})${ret}`
+        try {
+          const sampleInput = method.input.map((mIn) => buildSampleInput(mIn))
+          const submission = java.newInstanceSync(config.STATISTICS.CLASS_NAME)
+          java.callMethodSync(submission, methodName, ...sampleInput)
+        } catch (err) {
+          reject(new Error(`Error in signature for method ${method.name} - ${methodName}`))
+        }
+      })
+      resolve()
     })
   })
 }
@@ -246,7 +306,7 @@ function runCode (jobId, fileData, verification) {
       node: __dirname
     }
   })
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const { inputs, outputs, maxMemory, className, methods } = verification
     const results = []
     const pool = new threads.Pool(inputs.length)
@@ -255,10 +315,13 @@ function runCode (jobId, fileData, verification) {
       pool.run('run.js')
         .send({ __dirname: __dirname, jobId, input, output: outputs ? outputs[index] : null, maxMemory, className, methods, verificationData: fileData.Body.toString() })
         .on('error', (error) => {
-          logger.error('Failed running job', error)
+          logger.error('Failed running job')
+          logger.error(error)
           results[index] = {
             error: `Failed to run job for input=${input}`,
-            score: 0.0
+            score: 0.0,
+            executeTime: -1,
+            memory: -1
           }
         })
         .on('done', (data) => {
@@ -267,6 +330,7 @@ function runCode (jobId, fileData, verification) {
     })
     pool
       .on('finished', () => {
+        pool.killAll()
         resolve(results)
       })
   })

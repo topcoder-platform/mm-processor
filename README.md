@@ -38,7 +38,9 @@
   - `REGION`: string - the AWS region
   - `JOB_TABLE_NAME`: string - the DynamoDB table name for job records
   - `VERIFICATION_TABLE_NAME`: string - the DynamoDB table name for verification records
-
+ * `STATISTICS`: object - Statistics related configurations
+  - `CLASS_NAME`: string - the Statistics class name
+  
 ## Kafka Local Setup
 
 - quickstart link (see summary below)

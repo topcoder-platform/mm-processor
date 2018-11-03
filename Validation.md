@@ -72,14 +72,13 @@ npm start
 - Add a new record into Verification table with the following values (this is in JSON format, but it should be very clear, if you still don't understand how to do it, please check AWS documentation):
 ```
 {
-    "id": "some random id, it does not matter",
     "challengeId": "16344",
     "className": "Random",
     "maxMemory": "64m",
     "inputs": [
-      1,
-      2,
-      3
+      [1],
+      [2],
+      [3]
     ],
     "methods": [{
         "name": "guess",
@@ -96,3 +95,107 @@ npm start
 ```
 - the message should be processed and you should see the new record in Job table, with the score, and the new folder created under `/src/java/job`
 - try to send the same message multiple times, new job will be created for every message, the they may have different scores (because it is random)
+
+If you want to test Out Of Memory exception
+Please use such Verification record(change maxMemory and method name)
+```
+{
+    "challengeId": "16344",
+    "className": "Random",
+    "maxMemory": "6m",
+    "inputs": [
+      [1],
+      [2],
+      [3]
+    ],
+    "methods": [{
+        "name": "testOOM",
+        "input": [],
+        "output": "int"
+    }],
+    "url": "S3 URL of verification.js"
+}
+```
+Follow same step then you will get such result
+```
+{
+  "challengeId": "16344",
+  "createdOn": "2018-10-28T12:37:49.695Z",
+  "id": "3181b60c-c9da-49dc-8717-2b73579c5fdd",
+  "memberId": "123457",
+  "results": [
+    {
+      "error": "Failed to run job for input=1",
+      "executeTime": -1,
+      "memory": -1,
+      "score": 0
+    },
+    {
+      "error": "Failed to run job for input=2",
+      "executeTime": -1,
+      "memory": -1,
+      "score": 0
+    },
+    {
+      "error": "Failed to run job for input=3",
+      "executeTime": -1,
+      "memory": -1,
+      "score": 0
+    }
+  ],
+  "status": "Finished",
+  "submissionId": "some-id",
+  "updatedOn": "2018-10-28T12:38:02.563Z"
+}
+```
+
+If you want to test memory/executeTime in method
+Please use such Verification record
+```
+{
+    "challengeId": "16344",
+    "className": "Random",
+    "maxMemory": "64m",
+    "inputs": [
+      [1],
+      [2],
+      [3]
+    ],
+    "methods": [{
+        "name": "testOOM",
+        "input": [],
+        "output": "int"
+    }],
+    "url": "S3 URL of verification.js"
+}
+```
+
+Follow same step then you will get such result
+```
+{
+  "challengeId": "16344",
+  "createdOn": "2018-10-28T12:36:13.241Z",
+  "id": "6c2de186-c7a4-4781-abcc-d4e087f4b444",
+  "memberId": "123457",
+  "results": [
+    {
+      "executeTime": 1010,
+      "memory": 8521,
+      "score": 48
+    },
+    {
+      "executeTime": 1010,
+      "memory": 8521,
+      "score": 48
+    },
+    {
+      "executeTime": 1010,
+      "memory": 8521,
+      "score": 50
+    }
+  ],
+  "status": "Finished",
+  "submissionId": "some-id",
+  "updatedOn": "2018-10-28T12:36:29.728Z"
+}
+```

@@ -7,7 +7,7 @@ module.exports = {
   KAFKA: {
     CONNECTION_STRING: process.env.CONNECTION_STRING || '192.168.1.144:9092',
     GROUP_ID: process.env.GROUP_ID || 'tc-submission-mm-processor-group',
-    HANDLER_CONCURRENCY: 10,
+    HANDLER_CONCURRENCY: 1,
     SSL: {
       key: process.env.SSL_KEY,
       cert: process.env.SSL_CERT

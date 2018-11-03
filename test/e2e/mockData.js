@@ -98,10 +98,55 @@ const badCidMessage = {
   }
 }
 
+async function generateMarathonMatchMessageWithJavaCode (url) {
+  const challengeId = await getChallengeId('MARATHON_MATCH')
+  return {
+    topic: config.KAFKA.TOPIC,
+    message: {
+      value: JSON.stringify({
+        topic: config.KAFKA.FILTER.TOPIC,
+        originator: config.KAFKA.FILTER.ORIGINATOR,
+        timestamp: Date.now(),
+        'mime-type': 'mime-type',
+        payload: {
+          resource: config.KAFKA.FILTER.RESOURCES[0],
+          id: 'submission id',
+          url: url || 'http://fake.url.com/path',
+          fileType: 'java',
+          isFileSubmission: true,
+          memberId: 1,
+          challengeId
+        }
+      })
+    }
+  }
+}
+
+function generateVerificationMessageItem (challengeId, url) {
+  return {
+    'id': 'some random id, it does not matter',
+    'challengeId': challengeId,
+    'className': 'Random',
+    'maxMemory': '64m',
+    'inputs': [
+      [1],
+      [2],
+      [3]
+    ],
+    'methods': [{
+      'name': 'guess',
+      'input': [],
+      'output': 'int'
+    }],
+    'url': url
+  }
+}
 module.exports = {
   invalidSchemaMessage,
   filteredOutMessage,
   generateMarathonMatchMessage,
+  generateMarathonMatchMessageWithJavaCode,
   generateDevelopmentMessage,
+  generateVerificationMessageItem,
   badCidMessage
 }
