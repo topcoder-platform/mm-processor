@@ -98,7 +98,7 @@ const badCidMessage = {
   }
 }
 
-async function generateMarathonMatchMessageWithJavaCode (url) {
+async function generateMarathonMatchMessageWithFileType (fileType, url) {
   const challengeId = await getChallengeId('MARATHON_MATCH')
   return {
     topic: config.KAFKA.TOPIC,
@@ -112,7 +112,7 @@ async function generateMarathonMatchMessageWithJavaCode (url) {
           resource: config.KAFKA.FILTER.RESOURCES[0],
           id: 'submission id',
           url: url || 'http://fake.url.com/path',
-          fileType: 'java',
+          fileType,
           isFileSubmission: true,
           memberId: 1,
           challengeId
@@ -126,7 +126,7 @@ function generateVerificationMessageItem (challengeId, url) {
   return {
     'id': 'some random id, it does not matter',
     'challengeId': challengeId,
-    'className': 'Random',
+    'className': 'GuessRandom',
     'maxMemory': '64m',
     'inputs': [
       [1],
@@ -145,7 +145,7 @@ module.exports = {
   invalidSchemaMessage,
   filteredOutMessage,
   generateMarathonMatchMessage,
-  generateMarathonMatchMessageWithJavaCode,
+  generateMarathonMatchMessageWithFileType,
   generateDevelopmentMessage,
   generateVerificationMessageItem,
   badCidMessage

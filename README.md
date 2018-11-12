@@ -24,23 +24,20 @@
    * `TOPIC`: string - required topic to pass filter
    * `ORIGINATOR`: string - required originator to pass filter
    * `RESOURCE`: string[] - required resource to pass filter
- * `CHALLENGE_INFO_API`: string - challenge info api url for getting challenge details (`{cid}` is replaced with challenge id)
- * `CHALLENGE_SUBTRACK`: string - the challenge subtrack to process
-
-- `config/test.js`
- * `SLEEP_TIME`: positive integer - the time in milliseconds to sleep between producing messages and checking there response in e2e tests
- * `LOGGING_ON`: boolean - turn logging on during e2e testing (helpful for debugging tests)
-
-- `src/java/config/default.js`
  * `AWS`: object - AWS related configurations
   - `ACCESS_KEY_ID`: string - the AWS access key id
   - `SECRET_ACCESS_KEY`: string - the AWS secret access key
   - `REGION`: string - the AWS region
   - `JOB_TABLE_NAME`: string - the DynamoDB table name for job records
   - `VERIFICATION_TABLE_NAME`: string - the DynamoDB table name for verification records
- * `STATISTICS`: object - Statistics related configurations
-  - `CLASS_NAME`: string - the Statistics class name
-  
+ * `CHALLENGE_INFO_API`: string - challenge info api url for getting challenge details (`{cid}` is replaced with challenge id)
+ * `CHALLENGE_SUBTRACK`: string - the challenge subtrack to process
+
+- `config/test.js`
+ * `SLEEP_TIME`: positive integer - the time in milliseconds to sleep between producing messages and checking there response in e2e tests
+ * `LOGGING_ON`: boolean - turn logging on during e2e testing (helpful for debugging tests)
+ * `SUBMISSION_BUCKET_NAME`: string - the bucket name where to put the submission code for e2e tests
+
 ## Kafka Local Setup
 
 - quickstart link (see summary below)
@@ -78,6 +75,20 @@
   - start console consumer to interactively listen for messages on topic `submission.notification.create`
    * `bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic submission.notification.create --from-beginning`
 
+## Mono Setup
+
+- general documentation:
+ * https://www.mono-project.com/docs/
+
+- just install the latest Mono for your environment
+
+- the JavaScript code uses edge-js to interact with C# code. For more information, please refer to
+ * https://www.npmjs.com/package/edge-js
+
+- please follow the installation instructions for Linux or MacOS
+ * https://www.npmjs.com/package/edge-js#building-on-linux
+ * https://www.npmjs.com/package/edge-js#building-on-osx
+
 ## AWS setup
 
  - create DynamoDB tables
@@ -94,6 +105,7 @@
   * in the popup, click to show the secret access key, and write it down (this is the only change you can ever see it)
   * go to permissions tab, click `Add permissions` button
   * to be simple, you can attach administrator access to the user, or you can fine tune the permission to only access the DynamoDB tables and S3 bucket, but you need to make sure you have permission to put and update Job table, scan Verification table, and list and getObject permission to the S3 bucket
+  * for e2e tests, you need to have put and delete permission on Verification table, and put/deleteObject permission to the S3 bucket
   * update the configuration in `src/java/config/default.js` and put all the values you created or retrieved
 
 ## E2E Tests
@@ -103,7 +115,6 @@
  * if tests failing, it may be because `config/test.js#SLEEP_TIME` needs to be increased to allow messages to get processed
  * tests use https://api.topcoder-dev.com/v4/challenges?filter=subTrack=MARATHON_MATCH to get challenge id's for marathon matches
  * tests use https://api.topcoder-dev.com/v4/challenges?filter=subTrack=DEVELOPMENT to get challenge id's for the development challenges
-
 
 ## Topcoder Healthcheck Dropin
 

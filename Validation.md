@@ -68,12 +68,13 @@ npm start
 ## Verification for Java Score System
 
 - Be sure to follow the steps in README.md to create AWS DynamoDB tables, S3 bucket, IAM user, and update the corresponding configurations
-- Upload both files in `verifications/test` folder to the S3 bucket, and write down the S3 URL of the uploaded files (it should be something like `https://s3.amazonaws.com/<bucket name>/<file name>`)
+- Upload both files in `verifications/javatest` folder to the S3 bucket, and write down the S3 URL of the uploaded files (it should be something like `https://s3.amazonaws.com/<bucket name>/<folders>/<file name>`)
 - Add a new record into Verification table with the following values (this is in JSON format, but it should be very clear, if you still don't understand how to do it, please check AWS documentation):
 ```
 {
+    "id": "some random id, it does not matter",
     "challengeId": "16344",
-    "className": "Random",
+    "className": "GuessRandom",
     "maxMemory": "64m",
     "inputs": [
       [1],
@@ -85,76 +86,29 @@ npm start
         "input": [],
         "output": "int"
     }],
-    "url": "S3 URL of verification.js"
+    "url": {
+      "java": "S3 URL of verification.js"
+    }
 }
 ```
 - start the application
 - send the following message, please replace url field with the correct S3 URL
 ```
-{ "topic": "submission.notification.create", "originator": "submission-api", "timestamp": "2018-10-03T16:36:57.524Z", "mime-type": "some mime-type", "payload": { "resource": "submission", "id": "some-id", "challengeId": "16344", "memberId": "123457", "url": "https://s3.amazonaws.com/tc-development-bucket/Random.java", "fileType": "java", "isFileSubmission": true } }
+{ "topic": "submission.notification.create", "originator": "submission-api", "timestamp": "2018-10-03T16:36:57.524Z", "mime-type": "some mime-type", "payload": { "resource": "submission", "id": "some-id", "challengeId": "16344", "memberId": "123457", "url": "https://s3.amazonaws.com/tc-development-bucket/java/GuessRandom.java", "fileType": "java", "isFileSubmission": true } }
 ```
 - the message should be processed and you should see the new record in Job table, with the score, and the new folder created under `/src/java/job`
 - try to send the same message multiple times, new job will be created for every message, the they may have different scores (because it is random)
 
-If you want to test Out Of Memory exception
-Please use such Verification record(change maxMemory and method name)
-```
-{
-    "challengeId": "16344",
-    "className": "Random",
-    "maxMemory": "6m",
-    "inputs": [
-      [1],
-      [2],
-      [3]
-    ],
-    "methods": [{
-        "name": "testOOM",
-        "input": [],
-        "output": "int"
-    }],
-    "url": "S3 URL of verification.js"
-}
-```
-Follow same step then you will get such result
-```
-{
-  "challengeId": "16344",
-  "createdOn": "2018-10-28T12:37:49.695Z",
-  "id": "3181b60c-c9da-49dc-8717-2b73579c5fdd",
-  "memberId": "123457",
-  "results": [
-    {
-      "error": "Failed to run job for input=1",
-      "executeTime": -1,
-      "memory": -1,
-      "score": 0
-    },
-    {
-      "error": "Failed to run job for input=2",
-      "executeTime": -1,
-      "memory": -1,
-      "score": 0
-    },
-    {
-      "error": "Failed to run job for input=3",
-      "executeTime": -1,
-      "memory": -1,
-      "score": 0
-    }
-  ],
-  "status": "Finished",
-  "submissionId": "some-id",
-  "updatedOn": "2018-10-28T12:38:02.563Z"
-}
-```
+## Verification for C# Score System
 
-If you want to test memory/executeTime in method
-Please use such Verification record
+- Be sure to follow the steps in README.md to create AWS DynamoDB tables, S3 bucket, IAM user, and update the corresponding configurations
+- Upload both files in `verifications/csharptest` folder to the S3 bucket, and write down the S3 URL of the uploaded files (it should be something like `https://s3.amazonaws.com/<bucket name>/<folder>/<file name>`)
+- Add a new record into Verification table with the following values (this is in JSON format, but it should be very clear, if you still don't understand how to do it, please check AWS documentation):
 ```
 {
+    "id": "some random id, it does not matter",
     "challengeId": "16344",
-    "className": "Random",
+    "className": "GuessRandom",
     "maxMemory": "64m",
     "inputs": [
       [1],
@@ -162,40 +116,19 @@ Please use such Verification record
       [3]
     ],
     "methods": [{
-        "name": "testOOM",
+        "name": "guess",
         "input": [],
         "output": "int"
     }],
-    "url": "S3 URL of verification.js"
-}
-```
-
-Follow same step then you will get such result
-```
-{
-  "challengeId": "16344",
-  "createdOn": "2018-10-28T12:36:13.241Z",
-  "id": "6c2de186-c7a4-4781-abcc-d4e087f4b444",
-  "memberId": "123457",
-  "results": [
-    {
-      "executeTime": 1010,
-      "memory": 8521,
-      "score": 48
-    },
-    {
-      "executeTime": 1010,
-      "memory": 8521,
-      "score": 48
-    },
-    {
-      "executeTime": 1010,
-      "memory": 8521,
-      "score": 50
+    "url": {
+      "csharp": "S3 URL of verification.js"
     }
-  ],
-  "status": "Finished",
-  "submissionId": "some-id",
-  "updatedOn": "2018-10-28T12:36:29.728Z"
 }
 ```
+- start the application
+- send the following message, please replace url field with the correct S3 URL
+```
+{ "topic": "submission.notification.create", "originator": "submission-api", "timestamp": "2018-10-03T16:36:57.524Z", "mime-type": "some mime-type", "payload": { "resource": "submission", "id": "some-id", "challengeId": "16344", "memberId": "123457", "url": "https://s3.amazonaws.com/tc-development-bucket/csharp/GuessRandom.cs", "fileType": "cs", "isFileSubmission": true } }
+```
+- the message should be processed and you should see the new record in Job table, with the score, and the new folder created under `/src/csharp/job`
+- try to send the same message multiple times, new job will be created for every message, the they may have different scores (because it is random)

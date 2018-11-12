@@ -9,6 +9,7 @@ const config = require('config')
 const { logger } = require('../common/logger')
 
 const calculateScoreJava = require('../java/calculateScore')
+const calculateScoreCSharp = require('../csharp/calculateScore')
 
 /**
  * Process the message.
@@ -76,12 +77,23 @@ async function getSubTrack (challengeId) {
  * @param {object} message - the message
  */
 async function processMMSubmission (message) {
-  if (message.payload.fileType !== 'java') {
-    logger.debug('Submission is not Java code, ignore')
-    return
-  }
   const id = uuid()
-  await calculateScoreJava(message.payload.id, String(message.payload.memberId), String(message.payload.challengeId), message.payload.url, id)
+  switch (message.payload.fileType) {
+    case 'java':
+      const javaResult = await calculateScoreJava(message.payload.id, String(message.payload.memberId), String(message.payload.challengeId), message.payload.url, id)
+      if (javaResult) {
+        logger.debug(`Submission from member ${message.payload.memberId} for challenge ${message.payload.challengeId} got score ${javaResult.score}`)
+      }
+      break
+    case 'cs':
+      const csResult = await calculateScoreCSharp(message.payload.id, String(message.payload.memberId), String(message.payload.challengeId), message.payload.url, id)
+      if (csResult) {
+        logger.debug(`Submission from member ${message.payload.memberId} for challenge ${message.payload.challengeId} got score ${csResult.score}`)
+      }
+      break
+    default:
+      logger.debug('Submission is not using supported language, ignore')
+  }
 }
 
 // message schema used to validate messages

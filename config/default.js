@@ -22,6 +22,13 @@ module.exports = {
       ]
     }
   },
+  AWS: {
+    ACCESS_KEY_ID: process.env.ACCESS_KEY_ID,
+    SECRET_ACCESS_KEY: process.env.SECRET_ACCESS_KEY,
+    REGION: process.env.REGION || 'us-east-1',
+    JOB_TABLE_NAME: process.env.JOB_TABLE_NAME || 'Job',
+    VERIFICATION_TABLE_NAME: process.env.VERIFICATION_TABLE_NAME || 'Verification'
+  },
   CHALLENGE_INFO_API: process.env.CHALLENGE_INFO_API || 'https://api.topcoder-dev.com/v4/challenges?filter=id={cid}', // {cid} gets replaced with challenge id
   CHALLENGE_SUBTRACK: process.env.CHALLENGE_SUBTRACK || 'MARATHON_MATCH'
 }
