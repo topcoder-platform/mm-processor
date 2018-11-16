@@ -30,12 +30,12 @@ const filteredOutMessage = {
   }
 }
 
-async function getChallengeId (subTrack) {
+async function getChallengeId (subTrack, index = 0) {
   const result = await axios.get(`https://api.topcoder-dev.com/v4/challenges?filter=subTrack=${subTrack}`)
-  return result.data.result.content[0].id
+  return result.data.result.content[index].id
 }
 
-async function generateMarathonMatchMessage () {
+async function generateMarathonMatchMessage (fileType = 'file type', url = 'http://fake.url.com/path', userCustomId) {
   const challengeId = await getChallengeId('MARATHON_MATCH')
   return {
     topic: config.KAFKA.TOPIC,
@@ -48,11 +48,11 @@ async function generateMarathonMatchMessage () {
         payload: {
           resource: config.KAFKA.FILTER.RESOURCES[0],
           id: 'submission id',
-          url: 'http://fake.url.com/path',
-          fileType: 'file type',
+          url: url,
+          fileType: fileType,
           isFileSubmission: true,
           memberId: 1,
-          challengeId
+          challengeId: userCustomId || challengeId
         }
       })
     }
@@ -98,30 +98,6 @@ const badCidMessage = {
   }
 }
 
-async function generateMarathonMatchMessageWithFileType (fileType, url) {
-  const challengeId = await getChallengeId('MARATHON_MATCH')
-  return {
-    topic: config.KAFKA.TOPIC,
-    message: {
-      value: JSON.stringify({
-        topic: config.KAFKA.FILTER.TOPIC,
-        originator: config.KAFKA.FILTER.ORIGINATOR,
-        timestamp: Date.now(),
-        'mime-type': 'mime-type',
-        payload: {
-          resource: config.KAFKA.FILTER.RESOURCES[0],
-          id: 'submission id',
-          url: url || 'http://fake.url.com/path',
-          fileType,
-          isFileSubmission: true,
-          memberId: 1,
-          challengeId
-        }
-      })
-    }
-  }
-}
-
 function generateVerificationMessageItem (challengeId, url) {
   return {
     'id': 'some random id, it does not matter',
@@ -141,12 +117,34 @@ function generateVerificationMessageItem (challengeId, url) {
     'url': url
   }
 }
+function generateVerificationMessageItemWithCppCode (challengeId, url) {
+  return {
+    'id': 'some random id, it does not matter',
+    challengeId,
+    'className': 'Random',
+    'maxMemory': '64m',
+    'inputs': [
+      [1],
+      [2],
+      [3]
+    ],
+    'methods': [{
+      'name': 'guess',
+      'input': [],
+      'output': 'int'
+    }],
+    'url': {
+      cpp: url
+    }
+  }
+}
 module.exports = {
+  getChallengeId,
   invalidSchemaMessage,
   filteredOutMessage,
   generateMarathonMatchMessage,
-  generateMarathonMatchMessageWithFileType,
   generateDevelopmentMessage,
   generateVerificationMessageItem,
+  generateVerificationMessageItemWithCppCode,
   badCidMessage
 }

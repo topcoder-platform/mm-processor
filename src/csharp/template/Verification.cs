@@ -3,36 +3,22 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using System.Threading.Tasks;
-
+using System.Linq;
 public class Verification
 {
 
     private static readonly Dictionary<string, Type> TypeMapping;
 
-    private TimeSpan timespan;
-
     static Verification()
     {
         TypeMapping = new Dictionary<string, Type>();
         TypeMapping.Add("void", typeof(void));
-        TypeMapping.Add("boolean", typeof(bool));
-        TypeMapping.Add("byte", typeof(byte));
-        TypeMapping.Add("short", typeof(short));
         TypeMapping.Add("int", typeof(int));
-        TypeMapping.Add("long", typeof(long));
-        TypeMapping.Add("char", typeof(char));
-        TypeMapping.Add("float", typeof(float));
+        TypeMapping.Add("string", typeof(string));
         TypeMapping.Add("double", typeof(double));
-        TypeMapping.Add("String", typeof(string));
-        TypeMapping.Add("boolean[]", typeof(bool[]));
-        TypeMapping.Add("byte[]", typeof(byte[]));
-        TypeMapping.Add("short[]", typeof(short[]));
         TypeMapping.Add("int[]", typeof(int[]));
-        TypeMapping.Add("long[]", typeof(long[]));
-        TypeMapping.Add("char[]", typeof(char[]));
-        TypeMapping.Add("float[]", typeof(float[]));
-        TypeMapping.Add("double[]", typeof(double[]));
         TypeMapping.Add("string[]", typeof(string[]));
+        TypeMapping.Add("double[]", typeof(double[]));
     }
 
     public async Task<object> VerifyClassAndMethod(dynamic input)
@@ -49,11 +35,11 @@ public class Verification
         }
         catch
         {
-            return $"Error loading class {className}.";
+            return $"Error loading class {className}";
         }
         if (type == null)
         {
-            return $"The class {className} cannot be found.";
+            return $"The class {className} cannot be found";
         }
 
         Type[] parameterTypes = new Type[inputTypes.Length];
@@ -61,7 +47,7 @@ public class Verification
         {
             if (!TypeMapping.ContainsKey((string) inputTypes[i]))
             {
-                return $"The input type {inputTypes[i]} is not supported.";
+                return $"input value type <{inputTypes[i]}> is not accepted";
             }
             parameterTypes[i] = TypeMapping[(string) inputTypes[i]];
         }
@@ -72,20 +58,20 @@ public class Verification
         }
         catch
         {
-            return $"Error loading method {methodName}.";
+            return $"Error loading method {methodName}";
         }
         if (method == null)
         {
-            return $"The method {methodName} cannot be found.";
+            return $"The match public method {methodName} in class {className} cannot be found";
         }
 
         if (!TypeMapping.ContainsKey(outputType))
         {
-            return $"The output type {outputType} is not supported.";
+            return $"output value type <{outputType}> is not accepted";
         }
         if (TypeMapping[outputType] != method.ReturnType)
         {
-            return $"The output type {outputType} does not match.";
+            return $"The output type {outputType} does not match";
         }
 
         return null;
@@ -97,12 +83,26 @@ public class Verification
         string methodName = (string) input.name;
         object[] inputTypes = (object[]) input.input;
         object[] inputValues = (object[]) input.value;
-
         Type type = Type.GetType(className);
         Type[] parameterTypes = new Type[inputTypes.Length];
+        object[] values = new object[inputTypes.Length];
         for (int i = 0; i < inputTypes.Length; i++)
         {
-            parameterTypes[i] = TypeMapping[(string) inputTypes[i]];
+            string inputType =  (string) inputTypes[i];
+            parameterTypes[i] = TypeMapping[inputType];
+            // must manually convert array types
+            int arrayIndex = inputType.IndexOf("[]", StringComparison.CurrentCultureIgnoreCase);
+            if(arrayIndex!=-1) {
+                if(inputType == "int[]") {
+                  values[i] = ((object[])inputValues[i]).Select(Convert.ToInt32).ToArray();
+                } else if(inputType == "double[]") {
+                  values[i] = ((object[])inputValues[i]).Select(Convert.ToDouble).ToArray();
+                } else {
+                   values[i] = ((object[])inputValues[i]).Select(Convert.ToString).ToArray();
+                }
+            } else {
+               values[i] = inputValues[i];
+            }
         }
         MethodInfo method = type.GetMethod(methodName, BindingFlags.Public | BindingFlags.Instance, null, parameterTypes, null);
 
@@ -110,8 +110,19 @@ public class Verification
 
         object obj = Activator.CreateInstance(type);
         Stopwatch stopWatch = Stopwatch.StartNew();
-
-        result.result = method.Invoke(obj, inputValues);
+        try
+        {
+            result.result = method.Invoke(obj, values);
+        }
+        catch (TargetInvocationException ex)
+        {  
+             // must throw inner exception so caller will get real exception
+            if (ex.InnerException != null)
+            {
+                throw ex.InnerException;
+            }
+            throw ex;
+        }
 
         stopWatch.Stop();
         result.executionTime += stopWatch.ElapsedMilliseconds;

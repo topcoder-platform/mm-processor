@@ -58,6 +58,13 @@ class KafkaListener {
   }
 
   /**
+   * End the listener.
+   */
+  async end () {
+    await this.consumer.end()
+  }
+
+  /**
    * Generate data handler for messages from kafka.
    * @returns {function} The data handler.
    */

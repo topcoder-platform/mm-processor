@@ -1,0 +1,14 @@
+[
+{
+"input": ["This string contains a \\ character."]
+},
+{
+"input": ["This string contains a \" character."]
+},
+{
+"input": ["This string contains a )\" sequence."]
+},
+ {
+ "input": ["This string contains a R\"()\" sequence."]
+ }
+]

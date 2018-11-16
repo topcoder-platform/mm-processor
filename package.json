@@ -1,5 +1,5 @@
 {
-  "name": "tc-mm-processor",
+  "name": "mm-processor",
   "version": "1.0.0",
   "description": "Topcoder Submission - MM Processor Initial Setup",
   "main": "index.js",
@@ -7,16 +7,18 @@
     "start": "node src/app.js",
     "lint": "standard",
     "lint:fix": "standard --fix",
-    "test": "NODE_ENV=test mocha \"test/unit/**/*.test.js\" --exit",
+    "test": ". ./env.sh > /dev/null && NODE_ENV=test node node_modules/.bin/mocha \"test/unit/**/*.test.js\" --exit",
     "test:cov": "nyc npm test",
-    "e2e": "NODE_ENV=test mocha \"test/e2e/**/*.test.js\" --exit",
-    "e2e:cov": "nyc npm run e2e"
+    "e2e": ". ./env.sh > /dev/null && NODE_ENV=test node node_modules/.bin/mocha \"test/e2e/**/*.test.js\" --exit",
+    "e2e:cov": "nyc --reporter=html --reporter=text npm run e2e"
   },
   "keywords": [],
   "author": "",
-  "license": "",
+  "license": "ISC",
   "devDependencies": {
     "chai": "^4.2.0",
+    "should": "^13.2.3",
+    "glob": "^7.1.3",
     "mocha": "^5.2.0",
     "nyc": "^13.0.1",
     "proxyquire": "^2.1.0",
@@ -37,11 +39,20 @@
     "moment": "^2.22.2",
     "no-kafka": "^3.2.10",
     "threads": "^0.12.0",
+    "flatted": "^2.0.0",
+    "cpp-mm-scoring": "git+https://github.com/topcoder-platform/cpp-mm-scoring.git#dev-automated",
     "topcoder-healthcheck-dropin": "^1.0.3",
     "uuid": "^3.3.2",
     "vm2": "^3.6.4",
     "replace-in-file": "^3.4.2",
     "winston": "^3.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/topcoder-platform/mm-processor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/topcoder-platform/mm-processor/issues"
   },
   "standard": {
     "env": [

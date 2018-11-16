@@ -1,0 +1,5 @@
+[
+{
+"input": [["test", "string", "array"]]
+}
+]
