@@ -14,6 +14,7 @@ const verification = (input, output, className, methods) => {
     let x = java.callMethodSync(submission, methods[0].name) // wrong usage if pass inputs but keep old codes here
     data.score = y > x ? 0 : 100 - x + y
   } catch (err) {
+    console.error(err.stack)
     data.error = 'Error verifying submission: ' + (err.cause ? err.cause.getMessageSync() : err.message)
   }
 

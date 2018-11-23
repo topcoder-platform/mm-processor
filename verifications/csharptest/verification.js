@@ -6,24 +6,28 @@ module.exports = (input, output, className, methods) => {
   try {
     const randomMethod = edge.func(`
       async (input) => {
-        return new System.Random().Next(100);
+        return new System.Random().Next((int)input);
       }
     `)
-    let y = randomMethod(null, true)
+    let y = randomMethod(100, true)
 
     const params = {
       className,
       name: methods[0].name,
       input: methods[0].input,
-      value: null
+      value: input // call with input values
     }
-
     let result = callMethod(params, true)
-
-    data.score = y > result.result ? 0 : 100 - result.result + y
+    let x = result.result
+    x = parseInt(x)
+    if (isNaN(x) || methods[0].output === 'void') {
+       x = randomMethod(y, true)
+    }
+    data.score = y > x ? 0 : 100 - x + y
     data.executeTime = result.executionTime
     data.memory = result.memoryUsage
   } catch (err) {
+    console.error(err.stack)
     data.executeTime = -1
     data.memory = -1
     data.error = 'Error verifying submission: ' + (err.message ? err.message : err)

@@ -6,7 +6,7 @@ function runLoop (inputObject, done) {
   const java = require('java')
   const { NodeVM, VMScript } = require('vm2')
   const { logger } = require(path.join(__dirname, '../common/logger'))
-  const config = require('config').util.loadFileConfigs(path.join(__dirname, 'config'))
+  const config = require('config')
 
   java.options.push('-Xrs')
   if (maxMemory) {
@@ -17,7 +17,7 @@ function runLoop (inputObject, done) {
 
   java.ensureJvm(() => {
     try {
-      const submission = java.newInstanceSync(config.STATISTICS.CLASS_NAME)
+      const submission = java.newInstanceSync(config.STATISTICS.JAVA.CLASS_NAME)
       const verificationScript = new VMScript(verificationData)
       const vm = new NodeVM({
         sandbox: {
@@ -26,16 +26,23 @@ function runLoop (inputObject, done) {
         }
       })
 
-      logger.info(`Starting verification for ${jobId}`)
+      logger.info(`Starting java verification for ${jobId}`)
       const verification = vm.run(verificationScript, __dirname)
       const results = verification(input, output, className, methods)
-      results.memory = parseInt(submission.getMemorySync() / 1024) // KBytes
-      results.executeTime = submission.getExecuteTimeSync() // milliseconds
+      if (!results.error) {
+        results.memory = parseInt(submission.getMemorySync() / 1024) // KBytes
+        results.executeTime = submission.getExecuteTimeSync() // milliseconds
+      } else {
+        // usually no need
+        results.score = 0
+        results.memory = -1
+        results.executeTime = -1
+      }
       logger.debug(JSON.stringify(results))
       done(results)
     } catch (err) {
-      logger.error(err)
-      if (err && err.cause && java.instanceOf(err.cause.getCauseSync(), 'java.lang.OutOfMemoryError')) {
+      logger.logFullError(err)
+      if (err && err.cause && java.instanceOf(err.cause, 'java.lang.OutOfMemoryError')) {
         done({ executeTime: -1, memory: -1, score: 0.0, error: `OutOfMemoryError happened with max memory=${maxMemory}` })
       } else {
         done({ executeTime: -1, memory: -1, score: 0.0, error: 'Error in verification' })

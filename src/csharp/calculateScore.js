@@ -5,41 +5,11 @@ const { exec } = require('child_process')
 const threads = require('threads')
 const path = require('path')
 const fs = require('fs-extra')
+const config = require('config')
 const edge = require('edge-js')
 const { logger } = require('../common/logger')
-const { getDownloadPath, downloadFile, createJob, updateJob, getVerification } = require('../common/aws')
-
-/**
- * Calculate the score for a submission.
- * @param {string} submissionId the submission id.
- * @param {string} memberId the member id.
- * @param {string} challengeId the challenge id.
- * @param {string} submissionURL the URL to download submission.
- * @param {string} jobId the job id.
- * @returns {object} an object containing the score.
- */
-async function calculateScore (submissionId, memberId, challengeId, submissionURL, jobId) {
-  await createJob(jobId, submissionId, memberId, challengeId)
-
-  let verification = null
-  try {
-    // get verification from DynamoDB
-    verification = await getVerification(challengeId)
-    if (!verification.url.csharp) {
-      throw new Error('The verification does not have the code to verify C# submission')
-    }
-
-    const [bucketName, key, filename] = getDownloadPath(submissionURL)
-    await createJobFolder(jobId, bucketName, key, filename)
-    await buildSubmission(jobId)
-  } catch (err) {
-    await updateJob(jobId, 'Error', null, `Error preparing submission: ${err.message ? err.message : JSON.stringify(err)}`)
-    return
-  }
-  const { results } = await verifySubmission(jobId, verification)
-  logger.info(`Submission ${submissionId} has finished processing job=${jobId}`)
-  return results
-}
+const { downloadFile, updateJob } = require('../common/aws')
+const { calculateScore } = require('../common/jobUtils')
 
 /**
  * Create the folder to hold the job to compile and run.
@@ -52,6 +22,7 @@ async function createJobFolder (jobId, bucketName, key, filename) {
   await fs.copy(path.join(__dirname, 'template'), path.join(__dirname, 'job', jobId, 'project'))
   const fileData = await downloadFile(bucketName, key)
   await fs.outputFile(path.join(__dirname, 'job', jobId, 'project', filename), fileData.Body)
+  return fileData.Body.toString()
 }
 
 /**
@@ -74,29 +45,6 @@ async function buildSubmission (jobId) {
 }
 
 /**
- * Verify the submission and save the score or error.
- * @param {string} jobId the job id.
- * @param {object} verification the verification information.
- * @returns {Array} the result of running the submission.
- */
-async function verifySubmission (jobId, verification) {
-  await updateJob(jobId, 'Verification')
-
-  const [bucketName, key] = getDownloadPath(verification.url.csharp)
-  const fileData = await downloadFile(bucketName, key)
-
-  try {
-    await verifySignature(jobId, verification)
-    const results = await runCode(jobId, fileData, verification)
-    await updateJob(jobId, 'Finished', results)
-    return { results }
-  } catch (error) {
-    await updateJob(jobId, 'Error', null, error.message ? error.message : JSON.stringify(error))
-    return { err: error }
-  }
-}
-
-/**
  * Verify that the submission has correct class and method definition.
  * @param {string} jobId the job id.
  * @param {object} verification the verification information.
@@ -104,8 +52,8 @@ async function verifySubmission (jobId, verification) {
 async function verifySignature (jobId, verification) {
   const verifyMethod = edge.func({
     assemblyFile: path.join(__dirname, 'job', jobId, 'project', 'Verification.dll'),
-    typeName: 'Verification',
-    methodName: 'VerifyClassAndMethod'
+    typeName: config.STATISTICS.CSHARP.CLASS_NAME,
+    methodName: config.STATISTICS.CSHARP.CHECK_SIGNATURE
   })
   await new Promise((resolve, reject) => {
     try {
@@ -117,7 +65,6 @@ async function verifySignature (jobId, verification) {
         const ret = verifyMethod(input, true)
         if (ret) {
           reject(new Error(ret))
-          return
         }
       })
       resolve()
@@ -171,4 +118,5 @@ async function runCode (jobId, fileData, verification) {
   })
 }
 
-module.exports = calculateScore
+module.exports = async (submissionId, memberId, challengeId, submissionURL, jobId) =>
+  calculateScore('csharp', createJobFolder, buildSubmission, verifySignature, runCode, submissionId, memberId, challengeId, submissionURL, jobId)

@@ -29,6 +29,29 @@ module.exports = {
     JOB_TABLE_NAME: process.env.JOB_TABLE_NAME || 'Job',
     VERIFICATION_TABLE_NAME: process.env.VERIFICATION_TABLE_NAME || 'Verification'
   },
+  STATISTICS: {
+    JAVA: {
+      CLASS_NAME: 'Statistics',
+      CHECK_SIGNATURE: 'findMethod'
+    },
+    CSHARP: {
+      CLASS_NAME: 'Verification',
+      CHECK_SIGNATURE: 'VerifyClassAndMethod',
+      RUN_METHOD: 'CallMethod'
+    }
+  },
+  SUPPORTED_FILE_TYPES: {
+    JAVA: 'java',
+    CPP: 'cpp',
+    CSHARP: 'cs'
+  },
+  TYPE_MAPPINGS: {
+    cpp: {
+      'int[]': 'vector<int>',
+      'double[]': 'vector<double>',
+      'string[]': 'vector<string>'
+    }
+  },
   CHALLENGE_INFO_API: process.env.CHALLENGE_INFO_API || 'https://api.topcoder-dev.com/v4/challenges?filter=id={cid}', // {cid} gets replaced with challenge id
   CHALLENGE_SUBTRACK: process.env.CHALLENGE_SUBTRACK || 'MARATHON_MATCH'
 }

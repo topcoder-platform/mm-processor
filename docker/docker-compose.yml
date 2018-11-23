@@ -6,3 +6,6 @@ services:
       context: ../
       dockerfile: docker/Dockerfile
     network_mode: "host"
+    volumes:
+      - "../:/mm-processor"
+    working_dir: /mm-processor

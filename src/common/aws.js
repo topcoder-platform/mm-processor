@@ -37,7 +37,7 @@ const verificationSchema = Joi.object({
   className: Joi.string().required(),
   challengeId: Joi.alternatives().try(Joi.string(), Joi.number()).required(),
   maxMemory: Joi.string().required(),
-  url: Joi.object({ java: Joi.string(), csharp: Joi.string() }).required(),
+  url: Joi.object({ java: Joi.string(), csharp: Joi.string(), cpp: Joi.string() }).required(),
   methods: Joi.array().items(MethodSchema).min(1).required(),
   inputs: Joi.array().min(1).required(),
   outputs: Joi.array()
@@ -51,7 +51,7 @@ const verificationSchema = Joi.object({
 function getDownloadPath (url) {
   const matches = s3UrlPattern.exec(url)
   if (matches === null) {
-    logger.debug('The URL is not for S3')
+    logger.error('The URL is not for S3')
     throw new Error(`The URL is not for S3: ${url}`)
   }
   let bucketName = matches[1]

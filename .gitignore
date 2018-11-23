@@ -5,6 +5,14 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# idea directory
+.idea
+
+# job directory
+src/csharp/job/*
+src/cpp/job/*
+src/java/job/*
+
 # Runtime data
 pids
 *.pid

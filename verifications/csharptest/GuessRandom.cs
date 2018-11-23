@@ -33,4 +33,10 @@ public class GuessRandom
         return SIZE % 100;
     }
 
+    private int privateMethod() { return 1; }
+
+    public void voidMethod()  {}
+
+    public int testError()  { throw new Exception("Error in method of verification");}
+
 }

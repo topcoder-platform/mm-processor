@@ -1,0 +1,17 @@
+[
+{
+"input": [1, 2.0, "hello", [4, 3, 2], [1.0, 2.0, 3.0], ["test", "string", "array"]]
+},
+{
+"input": [1, 2.0, "INVALID", [4, 3, 2], [1.0, 2.0, 3.0], ["test", "string", "array"]]
+},
+{
+"input": [1, 2.0, "hello", [], [1.0, 2.0, 3.0], ["test", "string", "array"]]
+},
+{
+"input": [1, 2.0, "hello", [4, 3, 2], [], ["test", "string", "array"]]
+},
+{
+"input": [1, -5.0, "hello", [4, 3, 2], [1.0, 2.0], []]
+}
+]

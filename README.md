@@ -2,11 +2,13 @@
 
 ## Development Environment
 
-- Ubuntu 16.04
+- Ubuntu 18.04
 
 - node v8.11.1
 
 - npm 5.6.0
+
+- cpp-mm-scoring, please check related local development notes from https://github.com/topcoder-platform/cpp-mm-scoring.git
 
 ## Configuration
 
@@ -30,13 +32,18 @@
   - `REGION`: string - the AWS region
   - `JOB_TABLE_NAME`: string - the DynamoDB table name for job records
   - `VERIFICATION_TABLE_NAME`: string - the DynamoDB table name for verification records
+ * `STATISTICS`: object - Statistics related configurations
+  - `CLASS_NAME`: string - the Statistics class name
+  - `FIND_METHOD_NAME`: string - the static method to find match public non static method using reflect
+ * `SUPPORTED_FILE_TYPES`: object - supported file types
+ * `TYPE_MAPPINGS`: object - mapping from default type to builtin type
  * `CHALLENGE_INFO_API`: string - challenge info api url for getting challenge details (`{cid}` is replaced with challenge id)
  * `CHALLENGE_SUBTRACK`: string - the challenge subtrack to process
 
 - `config/test.js`
  * `SLEEP_TIME`: positive integer - the time in milliseconds to sleep between producing messages and checking there response in e2e tests
  * `LOGGING_ON`: boolean - turn logging on during e2e testing (helpful for debugging tests)
- * `SUBMISSION_BUCKET_NAME`: string - the bucket name where to put the submission code for e2e tests
+ * `MAX_CHECKS`: positive integer - max times to check job is over finished or error status or wait at most with `MAX_CHECKS*SLEEP_TIME`
 
 ## Kafka Local Setup
 
@@ -124,6 +131,8 @@
 
 ## Local Deployment
 
+You may run `source env.sh` to match your local environment.
+
 - install node dependencies
 ```
 npm i
@@ -155,3 +164,5 @@ npm run lint:fix
 - e2e tests
  * without coverage: `npm run e2e`
  * with coverage: `npm run e2e:cov`
+
+You can check coverage folder to see coverage report for e2e tests.

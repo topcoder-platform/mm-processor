@@ -6,10 +6,12 @@ const axios = require('axios')
 const Joi = require('joi')
 const uuid = require('uuid/v4')
 const config = require('config')
+const Flatted = require('flatted')
 const { logger } = require('../common/logger')
 
 const calculateScoreJava = require('../java/calculateScore')
 const calculateScoreCSharp = require('../csharp/calculateScore')
+const calculateScoreCpp = require('../cpp/calculateScore')
 
 /**
  * Process the message.
@@ -64,8 +66,10 @@ async function getSubTrack (challengeId) {
         status: err.response.status,
         headers: err.response.headers
       }, null, 2)}`)
-    } else if (err.request) { // request sent, no repspone received
-      logger.error(`Challenge Details API Error (request sent, no response): ${JSON.stringify(err.request, null, 2)}`)
+    } else if (err.request) { // request sent, no response received
+      // may throw such error Converting circular structure to JSON if use native JSON.stringify
+      // https://github.com/axios/axios/issues/836
+      logger.error(`Challenge Details API Error (request sent, no response): ${Flatted.stringify(err.request, null, 2)}`)
     } else {
       logger.logFullError(err)
     }
@@ -77,23 +81,24 @@ async function getSubTrack (challengeId) {
  * @param {object} message - the message
  */
 async function processMMSubmission (message) {
-  const id = uuid()
+  let calculateMethod
   switch (message.payload.fileType) {
-    case 'java':
-      const javaResult = await calculateScoreJava(message.payload.id, String(message.payload.memberId), String(message.payload.challengeId), message.payload.url, id)
-      if (javaResult) {
-        logger.debug(`Submission from member ${message.payload.memberId} for challenge ${message.payload.challengeId} got score ${javaResult.score}`)
-      }
+    case config.SUPPORTED_FILE_TYPES.JAVA:
+      calculateMethod = calculateScoreJava
       break
-    case 'cs':
-      const csResult = await calculateScoreCSharp(message.payload.id, String(message.payload.memberId), String(message.payload.challengeId), message.payload.url, id)
-      if (csResult) {
-        logger.debug(`Submission from member ${message.payload.memberId} for challenge ${message.payload.challengeId} got score ${csResult.score}`)
-      }
+    case config.SUPPORTED_FILE_TYPES.CSHARP:
+      calculateMethod = calculateScoreCSharp
+      break
+    case config.SUPPORTED_FILE_TYPES.CPP:
+      calculateMethod = calculateScoreCpp
       break
     default:
+      logger.debug(`Not supported file type is ${message.payload.fileType}`)
       logger.debug('Submission is not using supported language, ignore')
+      return
   }
+  const id = uuid()
+  await calculateMethod(message.payload.id, String(message.payload.memberId), String(message.payload.challengeId), message.payload.url, id)
 }
 
 // message schema used to validate messages

@@ -10,14 +10,13 @@ const sinon = require('sinon')
 const fs = require('fs')
 const path = require('path')
 const AWS = require('aws-sdk-mock')
+const glob = require('glob')
 
 const {
   invalidSchemaMessage,
   filteredOutMessage,
   generateMarathonMatchMessage,
-  generateMarathonMatchMessageWithFileType,
   generateDevelopmentMessage,
-  generateVerificationMessageItem,
   badCidMessage
 } = require('./mockData')
 
@@ -49,35 +48,36 @@ docUpdateStub.withArgs(sinon.match.has('ExpressionAttributeValues', sinon.match.
   }
 })
 
-const [javaBucket, javaKey] = parseS3Url(config.JAVA_S3_URL)
-s3GetStub.withArgs({
-  Bucket: javaBucket,
-  Key: javaKey
-}).resolves({
-  Body: Buffer.from(fs.readFileSync(path.join(__dirname, '../../verifications/javatest/GuessRandom.java')))
-})
-const [csharpBucket, csharpKey] = parseS3Url(config.CSHARP_S3_URL)
-s3GetStub.withArgs({
-  Bucket: csharpBucket,
-  Key: csharpKey
-}).resolves({
-  Body: Buffer.from(fs.readFileSync(path.join(__dirname, '../../verifications/csharptest/GuessRandom.cs')))
-})
-const [javaVerificationBucket, javaVerificationKey] = parseS3Url(config.VERIFICATION_S3_URL.java)
-s3GetStub.withArgs({
-  Bucket: javaVerificationBucket,
-  Key: javaVerificationKey
-}).resolves({
-  Body: Buffer.from(fs.readFileSync(path.join(__dirname, '../../verifications/javatest/verification.js')))
-})
-const [csharpVerificationBucket, csharpVerificationKey] = parseS3Url(config.VERIFICATION_S3_URL.csharp)
-s3GetStub.withArgs({
-  Bucket: csharpVerificationBucket,
-  Key: csharpVerificationKey
-}).resolves({
-  Body: Buffer.from(fs.readFileSync(path.join(__dirname, '../../verifications/csharptest/verification.js')))
-})
+for (let fileType of ['java', 'cpp', 'csharp']) {
+  const [bucket, key] = parseS3Url(config[`${fileType.toUpperCase()}_S3_URL`])
+  s3GetStub.withArgs({
+    Bucket: bucket,
+    Key: key
+  }).resolves({
+    Body: Buffer.from(fs.readFileSync(path.join(__dirname,
+      `../../verifications/${fileType}test/GuessRandom.${fileType === 'csharp' ? 'cs' : fileType}`)))
+  })
+  const [verificationBucket, verificationKey] = parseS3Url(config.VERIFICATION_S3_URL[fileType])
+  s3GetStub.withArgs({
+    Bucket: verificationBucket,
+    Key: verificationKey
+  }).resolves({
+    Body: Buffer.from(fs.readFileSync(path.join(__dirname, `../../verifications/${fileType}test/verification.js`)))
+  })
+}
 
+// use files under verifications folder to generate match s3 file url
+glob.sync('cpptest/*.{js,cpp}', {
+  cwd: path.join(__dirname, '../../verifications')
+}).forEach((matchFile) => {
+  const [bucketName, key] = parseS3Url(`https://s3.amazonaws.com/tc-development-bucket/${matchFile}`)
+  s3GetStub.withArgs({
+    Bucket: bucketName,
+    Key: key
+  }).resolves({
+    Body: Buffer.from(fs.readFileSync(path.join(__dirname, '../../verifications', matchFile)))
+  })
+})
 AWS.mock('DynamoDB.DocumentClient', 'put', docPutStub)
 AWS.mock('DynamoDB.DocumentClient', 'update', docUpdateStub)
 AWS.mock('DynamoDB.DocumentClient', 'scan', docScanStub)
@@ -90,13 +90,28 @@ describe('Marathon Match Processor Tests', function () {
   // disable `before hook` timeout
   // time to run `before hook` depends on kafka producer and consumer connection times
   this.timeout(0)
-  let producer
-  let options
   let listener
   const debugLogs = []
   const errorLogs = []
   const error = logger.error
   const debug = logger.debug
+  let options = {}
+  if (config.KAFKA.CONNECTION_STRING) {
+    options.connectionString = config.KAFKA.CONNECTION_STRING
+  }
+  if (config.KAFKA.GROUP_ID) {
+    options.groupId = config.KAFKA.GROUP_ID
+  }
+  if (Number.isInteger(config.KAFKA.HANDLER_CONCURRENCY) && config.KAFKA.HANDLER_CONCURRENCY >= 1) {
+    options.handlerConcurrency = config.KAFKA.HANDLER_CONCURRENCY
+  }
+  if (config.KAFKA.SSL && config.KAFKA.SSL.CERT && config.KAFKA.SSL.KEY) {
+    options.ssl = {
+      cert: config.KAFKA.SSL.CERT,
+      key: config.KAFKA.SSL.KEY
+    }
+  }
+  let producer = new Kafka.Producer(options)
   const waitJob = async () => {
     let count = 0
     while (true) {
@@ -131,23 +146,6 @@ describe('Marathon Match Processor Tests', function () {
         error(message)
       }
     }
-    options = {}
-    if (config.KAFKA.CONNECTION_STRING) {
-      options.connectionString = config.KAFKA.CONNECTION_STRING
-    }
-    if (config.KAFKA.GROUP_ID) {
-      options.groupId = config.KAFKA.GROUP_ID
-    }
-    if (Number.isInteger(config.KAFKA.HANDLER_CONCURRENCY) && config.KAFKA.HANDLER_CONCURRENCY >= 1) {
-      options.handlerConcurrency = config.KAFKA.HANDLER_CONCURRENCY
-    }
-    if (config.KAFKA.SSL && config.KAFKA.SSL.CERT && config.KAFKA.SSL.KEY) {
-      options.ssl = {
-        cert: config.KAFKA.SSL.CERT,
-        key: config.KAFKA.SSL.KEY
-      }
-    }
-    producer = new Kafka.Producer(options)
     // start kafka producer
     await producer.init()
     // remove all not processed messages
@@ -189,7 +187,7 @@ describe('Marathon Match Processor Tests', function () {
   })
 
   it('Should setup healthcheck with check on kafka connection', async () => {
-    var connected = false
+    let connected = false
     const healthcheckEndpoint = `http://localhost:${process.env.PORT || 3000}/health`
     for (let i = 0; i < 10; i++) {
       try {
@@ -233,316 +231,6 @@ describe('Marathon Match Processor Tests', function () {
     assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
   })
 
-  it('Should properly handle `MARATHON_MATCH` challenge messages with java code type and invalid verification count', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    docScanStub.resolves({
-      Count: 0
-    })
-    const message = await generateMarathonMatchMessageWithFileType('java', config.JAVA_S3_URL)
-    await producer.send(message)
-    await waitJob()
-    const payload = JSON.parse(message.message.value).payload
-    assert.isTrue(docPutStub.called)
-
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    const challengeId = String(payload.challengeId)
-    // check data
-    assert.deepEqual(docPutStubParams, {
-      TableName: config.AWS.JOB_TABLE_NAME,
-      Item: {
-        id: jobId,
-        submissionId: payload.id,
-        challengeId,
-        memberId: String(payload.memberId),
-        createdOn: docPutStubParams.Item.createdOn,
-        updatedOn: docPutStubParams.Item.updatedOn,
-        status: 'Start'
-      }
-    })
-    // make sure job related folder are generated successfully
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    assert.deepEqual(docScanStub.args[0][0], {
-      TableName: config.AWS.VERIFICATION_TABLE_NAME,
-      FilterExpression: 'challengeId = :challengeId',
-      ExpressionAttributeValues: { ':challengeId': challengeId },
-      Select: 'ALL_ATTRIBUTES'
-    })
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Error', 'should close job with Error status')
-    assert.include(errorLogs, 'Error preparing submission: The verification information cannot be found or multiple verifications are found', ' verification not found')
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
-  })
-
-  it('Should properly handle `MARATHON_MATCH` challenge messages with java code type and invalid s3 url', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('java')
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await sleep(config.SLEEP_TIME)
-    let foundInvalidS3Url = errorLogs.find((message) => {
-      return message.startsWith('Error preparing submission: The URL is not for S3')
-    })
-    assert.isDefined(foundInvalidS3Url, 'should ignore invalid s3 url')
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
-  })
-
-  it('Should properly handle `MARATHON_MATCH` challenge messages with java code type and valid verification', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('java', config.JAVA_S3_URL)
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await waitJob()
-    assert.isTrue(docPutStub.called)
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    assert.isTrue(fs.existsSync(path.join(__dirname, '../../src/java/job', jobId, 'project/src/main/java')))
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Finished', 'should close job with Finished status')
-    const result = lastReturn.Attributes.results
-    result.forEach(r => {
-      assert.property(r, 'score', 'should exist score property in each run code result')
-    })
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
-  })
-
-  it('Should properly handle `MARATHON_MATCH` challenge messages with java code type and invalid method name', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('java', config.JAVA_S3_URL)
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    verification.Items[0].methods[0].name = 'notexist'
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await waitJob()
-    assert.isTrue(docPutStub.called)
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    assert.isTrue(fs.existsSync(path.join(__dirname, '../../src/java/job', jobId, 'project/src/main/java')))
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Error', 'should close job with Error status')
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
-  })
-
-  it('Should properly handle `MARATHON_MATCH` challenge messages with java code type and invalid method input', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('java', config.JAVA_S3_URL)
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    verification.Items[0].methods[0].input = ['string']
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await waitJob()
-    assert.isTrue(docPutStub.called)
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    assert.isTrue(fs.existsSync(path.join(__dirname, '../../src/java/job', jobId, 'project/src/main/java')))
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Error', 'should close job with Error status')
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
-  })
-
-  it('Should properly handle `MARATHON_MATCH` challenge messages with java code type and array of int method input', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('java', config.JAVA_S3_URL)
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    verification.Items[0].methods[0].name = 'testArrayOfInt'
-    verification.Items[0].methods[0].input = ['int[]']
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await waitJob()
-    assert.isTrue(docPutStub.called)
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    assert.isTrue(fs.existsSync(path.join(__dirname, '../../src/java/job', jobId, 'project/src/main/java')))
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Finished', 'should close job with Finished status')
-    const result = lastReturn.Attributes.results
-    result.forEach(r => {
-      assert.property(r, 'executeTime', -1, 'should equal -1 if error happens')
-      assert.property(r, 'memory', -1, 'should equal -1 if error happens')
-      assert.property(r, 'score', 0, 'should equal 0 if error happens')
-      assert.property(r, 'error', 'Error in verification', 'should exist error property in each run code result')
-    })
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
-  })
-
-  it('Should properly handle `MARATHON_MATCH` challenge messages with java code type and error in verification.js', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('java', config.JAVA_S3_URL)
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    verification.Items[0].methods[0].name = 'testArrayOfString'
-    verification.Items[0].methods[0].input = ['string[]']
-    verification.Items[0].methods[0].output = 'int'
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await waitJob()
-    assert.isTrue(docPutStub.called)
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    assert.isTrue(fs.existsSync(path.join(__dirname, '../../src/java/job', jobId, 'project/src/main/java')))
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Finished', 'should close job with Finished status')
-    const result = lastReturn.Attributes.results
-    result.forEach(r => {
-      assert.property(r, 'executeTime', -1, 'should equal -1 if error happens')
-      assert.property(r, 'memory', -1, 'should equal -1 if error happens')
-      assert.property(r, 'score', 0, 'should equal 0 if error happens')
-      assert.property(r, 'error', 'Error in verification', 'should exist error property in each run code result')
-    })
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
-  })
-
-  it('Should properly handle `MARATHON_MATCH` challenge messages with java code type and out of memory error', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('java', config.JAVA_S3_URL)
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    verification.Items[0].maxMemory = '6m'
-    verification.Items[0].methods[0].name = 'testOOM'
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await waitJob()
-    assert.isTrue(docPutStub.called)
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    assert.isTrue(fs.existsSync(path.join(__dirname, '../../src/java/job', jobId, 'project/src/main/java')))
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Finished', 'should close job with Finished status')
-    const result = lastReturn.Attributes.results
-    result.forEach(r => {
-      assert.property(r, 'executeTime', -1, 'should equal -1 if error happens')
-      assert.property(r, 'memory', -1, 'should equal -1 if error happens')
-      assert.property(r, 'score', 0, 'should equal 0 if error happens')
-      assert.property(r, 'error', `OutOfMemoryError happened with max memory=${verification.Items[0].maxMemory}`, 'should exist score property in each run code result')
-    })
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
-  })
-
-  it('Should properly handle `MARATHON_MATCH` challenge messages with java code type and execute time/memory', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('java', config.JAVA_S3_URL)
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    verification.Items[0].methods[0].name = 'testOOM'
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await waitJob()
-    assert.isTrue(docPutStub.called)
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    assert.isTrue(fs.existsSync(path.join(__dirname, '../../src/java/job', jobId, 'project/src/main/java')))
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Finished', 'should close job with Finished status')
-    const result = lastReturn.Attributes.results
-    result.forEach(r => {
-      assert.property(r, 'score', 'should exist score property in each run code result')
-      assert.property(r, 'memory', 'should exist memory property in each run code result')
-      assert.property(r, 'executeTime', 'should exist executeTime property in each run code result')
-      assert.isTrue(r.executeTime >= 1000) // usually >1000
-      assert.isTrue(r.memory >= 1024 * 8)
-    })
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
-  })
-
   it('Should properly handle non-`MARATHON_MATCH` challenge messages', async () => {
     await producer.send(await generateDevelopmentMessage())
     await sleep(config.SLEEP_TIME)
@@ -560,277 +248,22 @@ describe('Marathon Match Processor Tests', function () {
     })
     assert.isDefined(found, 'handle challenge details api errors')
   })
-  
-  it('Should properly handle `MARATHON_MATCH` challenge messages with C# code type and invalid verification count', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    docScanStub.resolves({
-      Count: 0
-    })
-    const message = await generateMarathonMatchMessageWithFileType('cs', config.CSHARP_S3_URL)
-    await producer.send(message)
-    await waitJob()
-    const payload = JSON.parse(message.message.value).payload
-    assert.isTrue(docPutStub.called)
 
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    const challengeId = String(payload.challengeId)
-    // check data
-    assert.deepEqual(docPutStubParams, {
-      TableName: config.AWS.JOB_TABLE_NAME,
-      Item: {
-        id: jobId,
-        submissionId: payload.id,
-        challengeId,
-        memberId: String(payload.memberId),
-        createdOn: docPutStubParams.Item.createdOn,
-        updatedOn: docPutStubParams.Item.updatedOn,
-        status: 'Start'
-      }
-    })
-    // make sure job related folder are generated successfully
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    assert.deepEqual(docScanStub.args[0][0], {
-      TableName: config.AWS.VERIFICATION_TABLE_NAME,
-      FilterExpression: 'challengeId = :challengeId',
-      ExpressionAttributeValues: { ':challengeId': challengeId },
-      Select: 'ALL_ATTRIBUTES'
-    })
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Error', 'should close job with Error status')
-    assert.include(errorLogs, 'Error preparing submission: The verification information cannot be found or multiple verifications are found', ' verification not found')
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
+  describe('Marathon Match Processor Common Tests', () => {
+    for (let fileType of ['java', 'cpp', 'csharp']) {
+      require('./commontest')(fileType, producer, waitJob, debugLogs, errorLogs, docPutStub, docUpdateStub, docScanStub)
+    }
   })
 
-  it('Should properly handle `MARATHON_MATCH` challenge messages with C# code type and invalid s3 url', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('cs')
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await sleep(config.SLEEP_TIME)
-    let foundInvalidS3Url = errorLogs.find((message) => {
-      return message.startsWith('Error preparing submission: The URL is not for S3')
-    })
-    assert.isDefined(foundInvalidS3Url, 'should ignore invalid s3 url')
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
+  describe('Marathon Match Java Code Processor Tests', () => {
+    require('./javacodetest')(producer, waitJob, debugLogs, errorLogs, docPutStub, docUpdateStub, docScanStub)
   })
 
-  it('Should properly handle `MARATHON_MATCH` challenge messages with C# code type and valid verification', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('cs', config.CSHARP_S3_URL)
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await waitJob()
-    assert.isTrue(docPutStub.called)
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    assert.isTrue(fs.existsSync(path.join(__dirname, '../../src/csharp/job', jobId, 'project/Verification.dll')))
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Finished', 'should close job with Finished status')
-    const result = lastReturn.Attributes.results
-    result.forEach(r => {
-      assert.property(r, 'score', 'should exist score property in each run code result')
-    })
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
+  describe('Marathon Match C# Code Processor Tests', () => {
+    require('./csharpcodetest')(producer, waitJob, debugLogs, errorLogs, docPutStub, docUpdateStub, docScanStub)
   })
 
-  it('Should properly handle `MARATHON_MATCH` challenge messages with C# code type and invalid method name', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('cs', config.CSHARP_S3_URL)
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    verification.Items[0].methods[0].name = 'notexist'
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await waitJob()
-    assert.isTrue(docPutStub.called)
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    assert.isTrue(fs.existsSync(path.join(__dirname, '../../src/csharp/job', jobId, 'project/Verification.dll')))
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Error', 'should close job with Error status')
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
-  })
-
-  it('Should properly handle `MARATHON_MATCH` challenge messages with C# code type and invalid method input', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('cs', config.CSHARP_S3_URL)
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    verification.Items[0].methods[0].input = ['string']
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await waitJob()
-    assert.isTrue(docPutStub.called)
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    assert.isTrue(fs.existsSync(path.join(__dirname, '../../src/csharp/job', jobId, 'project/Verification.dll')))
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Error', 'should close job with Error status')
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
-  })
-
-  it('Should properly handle `MARATHON_MATCH` challenge messages with C# code type and array of int method input', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('cs', config.CSHARP_S3_URL)
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    verification.Items[0].methods[0].name = 'testArrayOfInt'
-    verification.Items[0].methods[0].input = ['int[]']
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await waitJob()
-    assert.isTrue(docPutStub.called)
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    assert.isTrue(fs.existsSync(path.join(__dirname, '../../src/csharp/job', jobId, 'project/Verification.dll')))
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Finished', 'should close job with Finished status')
-    const result = lastReturn.Attributes.results
-    result.forEach(r => {
-      assert.property(r, 'executeTime', -1, 'should equal -1 if error happens')
-      assert.property(r, 'memory', -1, 'should equal -1 if error happens')
-      assert.property(r, 'score', 0, 'should equal 0 if error happens')
-      assert.property(r, 'error', 'Error in verification', 'should exist error property in each run code result')
-    })
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
-  })
-
-  it('Should properly handle `MARATHON_MATCH` challenge messages with C# code type and error in verification.js', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('cs', config.CSHARP_S3_URL)
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    verification.Items[0].methods[0].name = 'testArrayOfString'
-    verification.Items[0].methods[0].input = ['string[]']
-    verification.Items[0].methods[0].output = 'int'
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await waitJob()
-    assert.isTrue(docPutStub.called)
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    assert.isTrue(fs.existsSync(path.join(__dirname, '../../src/csharp/job', jobId, 'project/Verification.dll')))
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Finished', 'should close job with Finished status')
-    const result = lastReturn.Attributes.results
-    result.forEach(r => {
-      assert.property(r, 'executeTime', -1, 'should equal -1 if error happens')
-      assert.property(r, 'memory', -1, 'should equal -1 if error happens')
-      assert.property(r, 'score', 0, 'should equal 0 if error happens')
-      assert.property(r, 'error', 'Error in verification', 'should exist error property in each run code result')
-    })
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
-  })
-
-  it('Should properly handle `MARATHON_MATCH` challenge messages with C# code type and execute time/memory', async () => {
-    assert.isFalse(docPutStub.called)
-    assert.isFalse(docUpdateStub.called)
-    assert.isFalse(docScanStub.called)
-    const message = await generateMarathonMatchMessageWithFileType('cs', config.CSHARP_S3_URL)
-    const payload = JSON.parse(message.message.value).payload
-    const challengeId = String(payload.challengeId)
-    let verification = {
-      Count: 1,
-      Items: [generateVerificationMessageItem(challengeId, config.VERIFICATION_S3_URL)]
-    }
-    verification.Items[0].methods[0].name = 'testMemoryAndTime'
-    docScanStub.resolves(verification)
-    await producer.send(message)
-    await waitJob()
-    assert.isTrue(docPutStub.called)
-    const docPutStubParams = docPutStub.args[0][0]
-    const jobId = docPutStubParams.Item.id
-    assert.isTrue(fs.existsSync(path.join(__dirname, '../../src/csharp/job', jobId, 'project/Verification.dll')))
-    assert.isTrue(docUpdateStub.called)
-    assert.isTrue(docScanStub.called)
-    const lastReturn = await docUpdateStub.lastCall.returnValue
-    assert.nestedPropertyVal(lastReturn, 'Attributes.status', 'Finished', 'should close job with Finished status')
-    const result = lastReturn.Attributes.results
-    result.forEach(r => {
-      assert.property(r, 'score', 'should exist score property in each run code result')
-      assert.property(r, 'memory', 'should exist memory property in each run code result')
-      assert.property(r, 'executeTime', 'should exist executeTime property in each run code result')
-      assert.isTrue(r.executeTime >= 1000) // usually >1000
-      assert.isTrue(r.memory >= 1024 * 8)
-    })
-    let found = debugLogs.find((message) => {
-      return message.startsWith('Successful Processing of MM Message')
-    })
-    assert.isDefined(found, 'handle `MARATHON_MATCH` challenge messages')
+  describe('Marathon Match C++ Code Processor Tests', () => {
+    require('./cppcodetest')(producer, waitJob, debugLogs, errorLogs, docPutStub, docUpdateStub, docScanStub)
   })
 })

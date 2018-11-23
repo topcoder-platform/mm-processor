@@ -25,4 +25,12 @@ public class GuessRandom {
   public int testArrayOfString(String[] array) {
     return SIZE % 100;
   }
+
+  private int privateMethod() { return 1;}
+
+  public void voidMethod()  {}
+
+  public int testError()  {
+     throw new RuntimeException("Error in method of verification");
+  }
 }
