@@ -20,5 +20,7 @@ RUN apt-get install -y pkg-config libgdiplus libunwind8 libssl-dev gettext libss
 # Set working directory for future use
 WORKDIR /mm-processor
 
+EXPOSE 3000
+
 # Install the dependencies from package.json
 CMD bash
