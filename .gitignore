@@ -76,3 +76,7 @@ src/java/job
 
 # VS code
 .vscode
+
+# Docker tmp
+.root/*
+!.root/.gitkeep

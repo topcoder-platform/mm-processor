@@ -5,7 +5,7 @@
 module.exports = {
   LOG_LEVEL: 'debug',
   KAFKA: {
-    CONNECTION_STRING: process.env.CONNECTION_STRING || '192.168.1.144:9092',
+    CONNECTION_STRING: process.env.CONNECTION_STRING || 'kafka-host:9092',
     GROUP_ID: process.env.GROUP_ID || 'tc-submission-mm-processor-group',
     HANDLER_CONCURRENCY: 1,
     SSL: {

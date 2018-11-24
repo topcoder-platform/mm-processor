@@ -17,11 +17,8 @@ RUN echo "deb https://download.mono-project.com/repo/ubuntu stable-bionic main" 
 
 RUN apt-get install -y pkg-config libgdiplus libunwind8 libssl-dev gettext libssl-dev libcurl4-openssl-dev zlib1g libicu-dev uuid-dev unzip
 
-# Copy the current directory into the Docker image
-COPY . /mm-processor
 # Set working directory for future use
 WORKDIR /mm-processor
 
 # Install the dependencies from package.json
-RUN npm install --unsafe-perm
 CMD bash
