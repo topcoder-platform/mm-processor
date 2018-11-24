@@ -22,11 +22,14 @@ services:
     build:
       context: ../
       dockerfile: docker/Dockerfile
+    ports:
+      - "3000:3000"
     volumes:
       - "../:/mm-processor"
       - "../.root:/root"
     working_dir: /mm-processor
     environment:
+      - PORT=3000
       - CONNECTION_STRING=${CONNECTION_STRING}
     links:
       - "kafka:kafka-host"
