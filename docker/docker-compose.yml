@@ -30,7 +30,6 @@ services:
     working_dir: /mm-processor
     environment:
       - PORT=3000
-      - CONNECTION_STRING=${CONNECTION_STRING}
     links:
       - "kafka:kafka-host"
     depends_on:
