@@ -26,5 +26,4 @@ WORKDIR /mm-processor
 RUN npm install
 
 # Start the application
-RUN /bin/bash -c "source env.sh"
 CMD npm start

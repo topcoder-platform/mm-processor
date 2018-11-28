@@ -2,10 +2,14 @@
  * This is the top-level module of the application.
  */
 
-console.log('**********')
-console.log(process.env.LD_PRELOAD)
-console.log(process.env.LLVM_INSTALL_PREFIX)
-console.log('**********')
+const testFolder = '/mm-processor/node_modules/cpp-mm-scoring/.sources/';
+const fs = require('fs');
+
+console.log('*********');
+fs.readdirSync(testFolder).forEach(file => {
+  console.log(file);
+})
+console.log('*********');
 
 global.Promise = require('bluebird')
 const healthcheck = require('topcoder-healthcheck-dropin')
