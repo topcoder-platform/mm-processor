@@ -25,6 +25,6 @@ WORKDIR /mm-processor
 # Install the dependencies from package.json
 RUN npm install
 
-RUN /bin/bash -c "source env.sh"
 # Start the application
+RUN /bin/bash -c "source env.sh"
 CMD npm start
