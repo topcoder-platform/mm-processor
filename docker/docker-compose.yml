@@ -7,8 +7,8 @@ services:
       dockerfile: docker/Dockerfile
     network_mode: "host"
     environment:
-      - LD_PRELOAD: "/mm-processor/node_modules/cpp-mm-scoring/.sources/cling-0.5/lib/libcling.so"
-      - CLING_DIR: "/mm-processor/node_modules/cpp-mm-scoring/.sources/cling-0.5/lib/cmake/cling"
-      - LLVM_INSTALL_PREFIX: "/mm-processor/node_modules/cpp-mm-scoring/.sources/cling-0.5"
-      - CLING_LIB_DIR: "/mm-processor/node_modules/cpp-mm-scoring/.sources/cling-0.5/lib"
-      - NLOHMANN_JSON_INCLUDE_DIR: "/mm-processor/node_modules/cpp-mm-scoring/.sources/include"
+      - LD_PRELOAD: /mm-processor/node_modules/cpp-mm-scoring/.sources/cling-0.5/lib/libcling.so
+      - CLING_DIR: /mm-processor/node_modules/cpp-mm-scoring/.sources/cling-0.5/lib/cmake/cling
+      - LLVM_INSTALL_PREFIX: /mm-processor/node_modules/cpp-mm-scoring/.sources/cling-0.5
+      - CLING_LIB_DIR: /mm-processor/node_modules/cpp-mm-scoring/.sources/cling-0.5/lib
+      - NLOHMANN_JSON_INCLUDE_DIR: /mm-processor/node_modules/cpp-mm-scoring/.sources/include
