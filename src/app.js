@@ -4,6 +4,7 @@
 
  console.log('***********')
  console.log(process.env.LD_PRELOAD)
+ console.log(process.env.LLVM_INSTALL_PREFIX)
  console.log('***********')
 
 global.Promise = require('bluebird')
