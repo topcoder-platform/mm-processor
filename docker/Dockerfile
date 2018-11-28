@@ -27,4 +27,4 @@ RUN npm install
 
 RUN /bin/bash -c "source env.sh"
 # Start the application
-CMD ["npm start
+CMD npm start
