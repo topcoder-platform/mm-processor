@@ -1,36 +1,8 @@
 version: '3'
 services:
-  kafka:
-    build:
-      context: ./kafka
-    image: kafka-ssl:1.0
-    container_name: kafka
-    ports:
-      - "9093:9093"
-      - "9092:9092"
-  # to override ssl related file
-  #  volumes:
-  #    - "./test/kafka-ssl:/kafka-ssl"
-    environment:
-      - "ENABLE_SSL=true"
-      - "TRUSTSTORE_PASSWORD=test1234"
-      - "KEYSTORE_PASSWORD=test1234"
-      - "KEY_PASSWORD=test1234"
-
-  tc-mm-processor:
+  mm-processor:
     image: mm-processor:latest
     build:
       context: ../
       dockerfile: docker/Dockerfile
-    ports:
-      - "3000:3000"
-    volumes:
-      - "../:/mm-processor"
-      - "../.root:/root"
-    working_dir: /mm-processor
-    environment:
-      - PORT=3000
-    links:
-      - "kafka:kafka-host"
-    depends_on:
-      - "kafka"
+    network_mode: "host"
