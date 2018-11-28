@@ -4,7 +4,7 @@
   "description": "Topcoder Submission - MM Processor Initial Setup",
   "main": "index.js",
   "scripts": {
-    "start": "node src/app.js",
+    "start": ". ./env.sh > /dev/null && node src/app.js",
     "lint": "standard",
     "lint:fix": "standard --fix",
     "test": ". ./env.sh > /dev/null && NODE_ENV=test node node_modules/.bin/mocha \"test/unit/**/*.test.js\" --exit",
