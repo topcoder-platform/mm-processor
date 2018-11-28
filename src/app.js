@@ -2,14 +2,9 @@
  * This is the top-level module of the application.
  */
 
-const testFolder = '/mm-processor/node_modules/cpp-mm-scoring/.sources/';
-const fs = require('fs');
-
-console.log('*********');
-fs.readdirSync(testFolder).forEach(file => {
-  console.log(file);
-})
-console.log('*********');
+ console.log('***********')
+ console.log(process.env.LD_PRELOAD)
+ console.log('***********')
 
 global.Promise = require('bluebird')
 const healthcheck = require('topcoder-healthcheck-dropin')
