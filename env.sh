@@ -9,7 +9,7 @@ if [ x"$UNAME" = x"Darwin" ]; then
   export DYLD_INSERT_LIBRARIES="$HOME/.cpp-mm-scoring/cling-0.5/lib/libcling.dylib"
   export PKG_CONFIG_PATH=/Library/Frameworks/Mono.framework/Versions/Current/lib/pkgconfig
 else
-  export LD_PRELOAD="/mm-processor/node_modules/cpp-mm-scoring/.sources/cling-0.5/lib/libcling.so"
+  export LD_PRELOAD=$LD_PRELOAD:"/mm-processor/node_modules/cpp-mm-scoring/.sources/cling-0.5/lib/libcling.so"
 fi
 export CLING_DIR="/mm-processor/node_modules/cpp-mm-scoring/.sources/cling-0.5/lib/cmake/cling"
 export LLVM_INSTALL_PREFIX="/mm-processor/node_modules/cpp-mm-scoring/.sources/cling-0.5"
