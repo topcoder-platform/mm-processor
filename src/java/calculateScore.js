@@ -23,14 +23,13 @@ async function createJobFolder (jobId, bucketName, key, filename) {
   await fs.copy(path.join(__dirname, 'template'), path.join(__dirname, 'job', jobId, 'project'))
   await fs.move(path.join(__dirname, 'job', jobId, 'project', 'Statistics.java'), path.join(__dirname, 'job', jobId, 'project/src/main/java', 'Statistics.java'))
   await fs.move(path.join(__dirname, 'job', jobId, 'project', 'StatisticsAspect.java'), path.join(__dirname, 'job', jobId, 'project/src/main/java', 'StatisticsAspect.java'))
+
+  const fileData = await downloadFile(bucketName, key, path.join(__dirname, 'job', jobId, 'project/src/main/java'))
   await replace({
     files: path.join(__dirname, 'job', jobId, 'project/src/main/java', '*.java'),
     from: /<class-name>/g,
-    to: path.basename(filename, '.java')
+    to: path.basename(fileData, '.java')
   })
-  const fileData = await downloadFile(bucketName, key)
-  await fs.outputFile(path.join(__dirname, 'job', jobId, 'project/src/main/java', filename), fileData.Body)
-  return fileData.Body.toString()
 }
 
 /**

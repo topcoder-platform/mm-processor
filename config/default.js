@@ -41,9 +41,9 @@ module.exports = {
     }
   },
   SUPPORTED_FILE_TYPES: {
-    JAVA: 'java',
-    CPP: 'cpp',
-    CSHARP: 'cs'
+    JAVA: '.java',
+    CPP: '.cpp',
+    CSHARP: '.cs'
   },
   TYPE_MAPPINGS: {
     cpp: {

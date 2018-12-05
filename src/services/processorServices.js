@@ -82,7 +82,9 @@ async function getSubTrack (challengeId) {
  */
 async function processMMSubmission (message) {
   let calculateMethod
-  switch (message.payload.fileType) {
+
+  const fileType = await aws.getFileType(message.payload.url)
+  switch (fileType) {
     case config.SUPPORTED_FILE_TYPES.JAVA:
       calculateMethod = calculateScoreJava
       break
@@ -93,7 +95,7 @@ async function processMMSubmission (message) {
       calculateMethod = calculateScoreCpp
       break
     default:
-      logger.debug(`Not supported file type is ${message.payload.fileType}`)
+      logger.debug(`Not supported file type is ${fileType}`)
       logger.debug('Submission is not using supported language, ignore')
       return
   }

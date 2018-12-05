@@ -4,9 +4,11 @@
 
 const AWS = require('aws-sdk')
 const moment = require('moment')
+const path = reuire('path')
 const Joi = require('joi')
 const config = require('config')
 const { logger } = require('./logger')
+const unzip = require('unzipper')
 
 const S3 = new AWS.S3({
   accessKeyId: config.AWS.ACCESS_KEY_ID,
@@ -65,17 +67,47 @@ function getDownloadPath (url) {
 }
 
 /**
+ * Get the file type from the archived submission file
+ * @param {string} url the URL of the S3 object.
+ * @returns {string} submission file type.
+ */
+async function getFileType (s3Url) {
+  const s3ObjectInfo = getDownloadPath(s3Url)
+  const zipFile = S3.getObject({ Bucket: s3ObjectInfo[0], Key: s3ObjectInfo[1] }).createReadStream()
+  let fileName
+  await zipFile.pipe(unzip.Parse())
+    .on('entry', function (entry) {
+      fileName = entry.path
+  }).promise();
+
+  return path.extname(fileName)
+}
+
+/**
  * Download a file from S3 bucket.
  * @param {string} bucketName the S3 bucket name.
  * @param {string} key the key to the S3 object.
  * @returns {object} the downloaded file data.
  */
-async function downloadFile (bucketName, key) {
+async function downloadFile (bucketName, key, unzipPath) {
   logger.debug(`Getting file from bucket ${bucketName} for key ${key}`)
-  return S3.getObject({
-    Bucket: bucketName,
-    Key: key
-  }).promise()
+  const fileExt = path.extname(key)
+  if (fileExt.toLowerCase() === '.zip') {
+    const zipFile = S3.getObject({ Bucket: bucketName, Key: key }).createReadStream()
+    let fileName
+    await zipFile.pipe(unzip.Parse())
+      .on('entry', function (entry) {
+        fileName = entry.path
+    }).promise();
+    
+    await zipFile.pipe(unzip.Extract({ path: `${unzipPath}` })).promise()
+    return fileName
+  } else {
+    return S3.getObject({
+        Bucket: bucketName,
+        Key: key
+    }).promise()
+  }
 }
 
 /**
@@ -169,5 +201,6 @@ module.exports = {
   downloadFile,
   createJob,
   updateJob,
-  getVerification
+  getVerification,
+  getFileType
 }
