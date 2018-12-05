@@ -8,6 +8,7 @@ const uuid = require('uuid/v4')
 const config = require('config')
 const Flatted = require('flatted')
 const { logger } = require('../common/logger')
+const aws = require('../common/aws')
 
 const calculateScoreJava = require('../java/calculateScore')
 const calculateScoreCSharp = require('../csharp/calculateScore')
