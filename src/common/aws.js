@@ -4,7 +4,7 @@
 
 const AWS = require('aws-sdk')
 const moment = require('moment')
-const path = reuire('path')
+const path = require('path')
 const Joi = require('joi')
 const config = require('config')
 const { logger } = require('./logger')

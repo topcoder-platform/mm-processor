@@ -5,7 +5,6 @@
   "main": "index.js",
   "scripts": {
     "start": ". ./env.sh > /dev/null && node src/app.js",
-    "start1": "node src/app.js",
     "lint": "standard",
     "lint:fix": "standard --fix",
     "test": ". ./env.sh > /dev/null && NODE_ENV=test node node_modules/.bin/mocha \"test/unit/**/*.test.js\" --exit",
