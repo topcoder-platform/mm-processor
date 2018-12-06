@@ -4,6 +4,7 @@
 
 const AWS = require('aws-sdk')
 const moment = require('moment')
+const fs = require('fs')
 const path = require('path')
 const Joi = require('joi')
 const config = require('config')
@@ -98,9 +99,9 @@ async function downloadFile (bucketName, key, unzipPath) {
     await zipFile.pipe(unzip.Parse())
       .on('entry', function (entry) {
         fileName = entry.path
+	entry.pipe(fs.createWriteStream(unzipPath + '/' + fileName))
     }).promise();
     
-    await zipFile.pipe(unzip.Extract({ path: `${unzipPath}` })).promise()
     return fileName
   } else {
     return S3.getObject({
