@@ -99,9 +99,8 @@ async function downloadFile (bucketName, key, unzipPath) {
     await zipFile.pipe(unzip.Parse())
       .on('entry', function (entry) {
         fileName = entry.path
-	entry.pipe(fs.createWriteStream(unzipPath + '/' + fileName))
-    }).promise();
-    
+        entry.pipe(fs.createWriteStream(unzipPath + '/' + fileName))
+      }).promise();
     return fileName
   } else {
     return S3.getObject({

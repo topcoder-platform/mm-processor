@@ -22,9 +22,8 @@ const undeclaredRe = /undeclared identifier '(.*)'/i
  */
 async function createJobFolder (jobId, bucketName, key, filename) {
   await fs.mkdirs(path.join(__dirname, 'job', jobId))
-  const fileData = await downloadFile(bucketName, key)
-  await fs.outputFile(path.join(__dirname, 'job', jobId, filename), fileData.Body)
-  return fileData.Body.toString()
+  const fileName = await downloadFile(bucketName, key, path.join(__dirname, 'job', jobId))
+  return fs.readFileSync(path.join(__dirname, 'job', jobId, fileName), 'utf8');
 }
 
 /**

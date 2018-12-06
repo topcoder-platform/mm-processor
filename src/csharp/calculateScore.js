@@ -20,9 +20,7 @@ const { calculateScore } = require('../common/jobUtils')
  */
 async function createJobFolder (jobId, bucketName, key, filename) {
   await fs.copy(path.join(__dirname, 'template'), path.join(__dirname, 'job', jobId, 'project'))
-  const fileData = await downloadFile(bucketName, key)
-  await fs.outputFile(path.join(__dirname, 'job', jobId, 'project', filename), fileData.Body)
-  return fileData.Body.toString()
+  await downloadFile(bucketName, key, path.join(__dirname, 'job', jobId, 'project'))
 }
 
 /**
